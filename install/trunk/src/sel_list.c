@@ -103,3 +103,43 @@ select_list (int optc, char *optv[])
 
   return (i);
 }
+
+int
+select_yn (char *prompt, char *yes, char *no)
+{
+  int len;
+  int ret;
+  int x0, x1;
+  char *yesno[2];
+
+  /* Draw a box */
+
+  len = strlen (prompt);
+
+  x0 = 40 - (len / 2) - 1;
+  if (x0 < 1)
+    {
+      x0 = 1;
+    }
+
+  x1 = 40 + (len / 2) + 1;
+  if (x1 > 80)
+    {
+      x1 = 80;
+    }
+
+  box (x0, 20, x1, 25);
+
+  /* Display the prompt, and do the y/n selection */
+
+  gotoxy (x0 + 1, 21);
+  cputs (prompt);
+
+  yesno[0] = yes;
+  yesno[1] = no;
+
+  gotoxy (40, 22);
+  ret = select_list (2, yesno);
+
+  return (ret);
+}
