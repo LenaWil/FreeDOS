@@ -24,19 +24,30 @@
 
 /* Symbolic constants */
 
-#define MAXLEN 80
+#define COLS 80				/* 80 columns on the screen */
 
 
 int
-cat_file (const char *filename, int y0, int maxlines)
+cat_file (const char *filename, int maxlines)
 {
   /* Display a file using conio.  Returns 0 if failed, or non-zero if
      successful.  Only shows up to maxlines of the file. */
 
-  FILE *stream;
-  char s[MAXLEN];
-  int nlines;
+  /* The programmer is responsible for positioning the cursor (usually
+     at 1,1) before making a call to cat_file.  Be careful that the
+     text from the file does not overrun the right boundary of the
+     screen. */
+
+  FILE *stream;				/* file to read */
+  char s[COLS];				/* string read from the file */
+  int start_x, start_y;			/* starting coordinates */
+  int nlines;				/* number of lines printed so far */
   int i;
+
+  /* Get the starting coordinates */
+
+  start_x = wherex();
+  start_y = wherey();
 
   /* open the file */
 
@@ -52,18 +63,19 @@ cat_file (const char *filename, int y0, int maxlines)
 
   nlines = 0;
 
-  while ((fgets (s, MAXLEN, stream) != NULL) && (nlines < maxlines))
+  while ((fgets (s, COLS, stream) != NULL) && (nlines < maxlines))
     {
-      gotoxy (1, y0 + nlines);
+      gotoxy (start_x, start_y + nlines);
       /* Use putch to add characters from the string */
 
       /* I need to use a hack here instead of cputs(s) because we
          appear to be printing a circle (ASCII 09h) instead of blank
          space. It's not a perfect hack, but it works. */
 
-      /* The following should be replaced by cputs(s); */
+      /* The following should be replaced by cputs(s) but the tab
+         thing is keeping me from doing that.  -jh */
 
-      for (i = 0; s[i] != '\0'; i++)
+      for (i = 0; s[i]; i++)
 	{
  	  switch (s[i])
  	    {
