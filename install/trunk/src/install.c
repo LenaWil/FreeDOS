@@ -1,6 +1,4 @@
-/* $Id$ */
-
-/* Copyright (C) 1998,1999,2000 Jim Hall <jhall@freedos.org> */
+/* Copyright (C) 1998,1999,2000,2001 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -20,7 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>			/* for malloc */
-#include <conio.h>			/* DOS Conio */
+#include <conio.h>			/* DOS conio */
 
 #include "catgets.h"			/* DOS catopen, catgets */
 
@@ -30,25 +28,23 @@
 #include "inst.h"			/* for inst_t */
 #include "repaint.h"
 
-
 /* Symbolic constants */
 
 #define DAT_FILE "install.dat"		/* top-level dat file */
 #define OEM_FILE "oem.txt"		/* text file for vendors */
 
-#define VERSION "3.5"			/* the install program version */
-
+#define INIT_DAT_SIZE 10		/* Initial size of dat array */
 
 /* Functions */
 
-void usage (void);
 inst_t install_top (dat_t *dat_ary, int dat_count);
 
+void install_hello (void);
+void install_oem (void);
 
-/* Globals (what a hack!) */
+/* Globals */
 
 nl_catd cat;				/* language catalog */
-
 
 /* program starts here */
 
@@ -57,11 +53,10 @@ main (int argc, char **argv)
 {
   char *s;
   int dat_count;			/* size of the dat array */
+  int dat_size = INIT_DAT_SIZE;		/* malloc size of the dat array */
+
   dat_t *dat_ary;			/* the dat file array */
   inst_t ret;				/* no. of errors, warnings */
-
-  /* CHANGE THIS VALUE AS NEEDED! */
-  int dat_size = 10;			/* malloc size of the dat array */
 
   struct text_info ti;			/* (borland) for gettextinfo */
 
@@ -73,7 +68,7 @@ main (int argc, char **argv)
 
   if (argc != 1)
     {
-      usage ();
+      fprintf (stderr, "USAGE:  install\n\n");
       exit (1);
     }
 
@@ -98,51 +93,24 @@ main (int argc, char **argv)
       exit (3);
     }
 
-  /* Say hello */
-
-  s = catgets (cat, 0, 0, "Install version %s, Copyright (C) 1998-2000 Jim Hall\n");
-  printf (s, VERSION);
-  s = catgets (cat, 0, 0, "This is free software, and you are welcome to redistribute it\n");
-  printf (s);
-  s = catgets (cat, 0, 0, "under certain conditions; see the file COPYING for details.\n");
-  printf (s);
-  s = catgets (cat, 0, 0, "Install comes with ABSOLUTELY NO WARRANTY\n");
-  printf (s);
-
-  /* immediately start the program */
+  /* Start the install */
 
   gettextinfo (&ti);
   textbackground (BLUE);
   textcolor (WHITE);
 
-  repaint_empty();
-
-  /* show the OEM file */
-
-  gotoxy (1, 10);
-  cat_file (OEM_FILE, 10 /* no. lines */);
-
-  gotoxy (1, 25);
-  s = catgets (cat, 1, 0, "Press any key to continue");
-  cputs (s);
-  getch();
-
-  /* Start the install */
+  install_hello();
+  install_oem();
 
   ret.errors = 0;
   ret.warnings = 0;
+
   ret = install_top (dat_ary, dat_count);
 
-  /* Reset colors to initial values */
+  /* Finished with install */
 
   textattr (ti.attribute);
-
-  /* Clear the screen */
   clrscr();
-
-  free (dat_ary);
-
-  /* Print results */
 
   if ((ret.errors == 0) && (ret.warnings == 0))
     {
@@ -156,19 +124,11 @@ main (int argc, char **argv)
       printf (s, ret.errors, ret.warnings);
     }
 
-  /* Close the catalog */
-
-  catclose (cat);
-
   /* Done */
 
+  free (dat_ary);
+  catclose (cat);
   exit (0);
-}
-
-void
-usage (void)
-{
-  fprintf (stderr, "USAGE:  install\n\n");
 }
 
 inst_t
@@ -186,35 +146,31 @@ install_top (dat_t *dat_ary, int dat_count)
   inst_t ret;				/* return: no. of errors,warnings */
   inst_t this;				/* no. of errors,warnings */
 
-  /* Say hello */
+  /* Where to install from, to */
 
   repaint_empty();
-  gotoxy (1, 3);
-  s = catgets (cat, 3, 1, "In top-level install");
-  cputs (s);
-
-  /* Where to install from, to */
 
   fromdir[0] = _MAX_DIR;		/* max length of the string */
   destdir[0] = _MAX_DIR;		/* max length of the string */
 
-  gotoxy (5, 10);
   s = catgets (cat, 1, 1, "Where are the install files? (where to install from?)");
+  gotoxy (5, 10);
   cputs (s);
 
   gotoxy (5, 12);
   cgets (fromdir);
 
-  gotoxy (5, 16);
   s = catgets (cat, 1, 2, "Where will files be installed? (where to install to?)");
+  gotoxy (5, 16);
   cputs (s);
       
   gotoxy (5, 18);
   cgets (destdir);
 
-  gotoxy (1, 25);
   s = catgets (cat, 1, 0, "Press any key to continue");
+  gotoxy (1, 25);
   cputs (s);
+
   getch();
 
   /* Ask to install every disk set */
@@ -304,4 +260,59 @@ install_top (dat_t *dat_ary, int dat_count)
   /* Done */
 
   return (ret);
+}
+
+void
+install_hello (void)
+{
+  char *s;
+
+  /* Say hello */
+
+  repaint_empty();
+
+  s = catgets (cat, 0, 0, "FreeDOS Install - Copyright (C) 1998-2000 Jim Hall");
+  gotoxy (1, 10);
+  cputs (s);
+
+  s = catgets (cat, 0, 1, "This is free software, and you are welcome to redistribute it");
+  gotoxy (1, 11);
+  cputs (s);
+
+  s = catgets (cat, 0, 2, "under certain conditions; see the file COPYING for details.");
+  gotoxy (1, 12);
+  cputs (s);
+
+  s = catgets (cat, 0, 3, "Install comes with ABSOLUTELY NO WARRANTY");
+  gotoxy (1, 13);
+  cputs (s);
+
+  /* Wait for a keypress */
+
+  s = catgets (cat, 1, 0, "Press any key to continue");
+  gotoxy (1, 25);
+  cputs (s);
+
+  getch();
+}
+
+void
+install_oem (void)
+{
+  char *s;
+
+  /* Show the OEM file */
+
+  repaint_empty();
+
+  gotoxy (1, 10);
+  cat_file (OEM_FILE, 10 /* no. lines */);
+
+  /* Wait for a keypress */
+
+  s = catgets (cat, 1, 0, "Press any key to continue");
+  gotoxy (1, 25);
+  cputs (s);
+
+  getch();
 }
