@@ -19,8 +19,8 @@ LFLAGS  = -fm -"option statics"
 MEMSUPT =
 ##for Turbo
 #CC	= tcc
-#CFLAGS  = -c -w -mt -a- -k- -N- -d -O -O2
-#LFLAGS  = -mt -M
+#CFLAGS  = -c -w -ms -a- -k- -N- -d -O -O2
+#LFLAGS  = -ms -M
 #MEMSUPT = memsupt.obj
 
 mem.exe: mem.obj prf.obj $(MEMSUPT)
