@@ -1,6 +1,6 @@
-/* install.c */
+/* $Id$ */
 
-/* Copyright (C) 1998-1999 Jim Hall <jhall1@isd.net> */
+/* Copyright (C) 1998,1999,2000 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -20,22 +20,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>			/* for malloc */
-
-#ifdef unix
-#include "conio.h"			/* DOS Conio */
-#else /* dos */
 #include <conio.h>			/* DOS Conio */
-#endif /* unix */
 
-#ifdef unix
-#include <nl_types.h>			/* UNIX catopen, catgets */
-#else /* dos */
 #include "catgets.h"			/* DOS catopen, catgets */
-#endif
-
-#ifdef unix
-#include "makepath.h"			/* UNIX _makepath(), _splitpath() */
-#endif /* unix */
 
 #include "cat.h"			/* for cat_file */
 #include "dat.h"			/* for dat_read */
@@ -76,10 +63,7 @@ main (int argc, char **argv)
   /* CHANGE THIS VALUE AS NEEDED! */
   int dat_size = 10;			/* malloc size of the dat array */
 
-#ifndef unix
-  /* dos */
   struct text_info ti;			/* (borland) for gettextinfo */
-#endif
 
   /* Open the language catalog */
 
@@ -127,16 +111,9 @@ main (int argc, char **argv)
 
   /* immediately start the program */
 
-#ifdef unix
-  conio_init();
-#endif
-
-#ifndef unix
-  /* dos */
   gettextinfo (&ti);
   textbackground (BLUE);
   textcolor (WHITE);
-#endif
 
   repaint_empty();
 
@@ -155,19 +132,12 @@ main (int argc, char **argv)
   ret.warnings = 0;
   ret = install_top (dat_ary, dat_count);
 
-  /* say goodbye */
+  /* Reset colors to initial values */
 
-#ifndef unix
-  /* dos */
   textattr (ti.attribute);
-#endif
 
   /* Clear the screen */
   clrscr();
-
-#ifdef unix
-  conio_end();
-#endif
 
   free (dat_ary);
 
