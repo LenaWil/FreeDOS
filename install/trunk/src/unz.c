@@ -1,6 +1,8 @@
-/* unz.c - wrapper to the info-unzip API */
+/* $Id$ */
 
-/* Copyright (C) 1998-1999 Jim Hall, jhall1@isd.net */
+/* Wrapper to the info-unzip API */
+
+/* Copyright (C) 1998,1999,2000 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -22,10 +24,7 @@
 
 #include "unzip.h"			/* for UzpMain() */
 
-#ifdef unix
-#include "makepath.h"			/* for _makepath(), _splitpath() */
-#endif /* unix */
-
+/* Symbolic constants */
 
 #define PATH_LEN 128			/* length of dir path */
 
