@@ -46,6 +46,13 @@ dat_fread (FILE *stream, dat_t *dat_ary, int dat_size)
   count = 0;
 
   while (fgets (str, STRLEN, stream) != NULL) {
+
+    /* Ignore the line if 1st character is a # */
+    if (*str == '#') continue;
+
+    /* Ignore blank lines */
+    if ( (*str == '\0') || ((*str == '\n') && (*(str+1) == '\0')) ) continue;
+
     /* Break up the string into tokens */
 
     s = strtok (str, " :");
