@@ -33,6 +33,9 @@
 #include <stdlib.h>
 #include <bios.h>
 
+#include "kitten.h"
+#define _(set,message_number,message) kittengets(set,message_number,message)
+
 #ifdef __WATCOMC__
 #define bioskey(x) getch()
 #endif
@@ -72,7 +75,7 @@ void put_console(int c)
       if(line_counter >= num_lines - 1)
       {
         line_counter = 0;
-        printf("\nPress <Enter> to continue or <Esc> to exit . . .");
+        printf(_(8,0,"\nPress <Enter> to continue or <Esc> to exit . . ."));
         if (bioskey(0) == 27)
             exit(1);
         line_counter = 0;
@@ -238,7 +241,10 @@ static void do_printf(const char * fmt, va_list arg)
             if (base >= 0)
               currentArg =  (long)(unsigned)currentArg;
           }
-          ltoa(currentArg, s, base);
+          if (base<0)
+            ltoa(currentArg, s, -base);
+          else
+            ultoa(currentArg, s, base);
           p = s;
         }
         break;

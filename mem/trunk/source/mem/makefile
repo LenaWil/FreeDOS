@@ -23,8 +23,8 @@ MEMSUPT =
 #LFLAGS  = -ms -M
 #MEMSUPT = memsupt.obj
 
-mem.exe: mem.obj prf.obj $(MEMSUPT)
-	$(CC) $(LFLAGS) mem.obj prf.obj $(MEMSUPT)
+mem.exe: mem.obj prf.obj kitten.obj $(MEMSUPT)
+	$(CC) $(LFLAGS) mem.obj prf.obj kitten.obj $(MEMSUPT)
 	upx --8086 --best mem.exe
 
 .c.obj:

@@ -72,6 +72,9 @@
     * display version for "mem/?"
 */
 
+#define MEM_MAJOR 1
+#define MEM_MINOR 7
+
 /*  Be sure to compile with word alignment OFF !!! */
 #if defined(_MSC_VER)
 #define asm __asm
@@ -104,6 +107,7 @@
 #include <ctype.h>
 #include <bios.h>
 #include <conio.h>
+#include "kitten.h"
 
 typedef unsigned char BYTE;
 typedef unsigned char uchar;
@@ -124,6 +128,8 @@ typedef unsigned long ulong;
 #define MT_DEVICE  8
 #define MT_DOSDATA 9
 #define MT_IFS     10
+
+#define _(set,message_number,message) kittengets(set,message_number,message)
 
 int num_lines = -1;
 
@@ -675,7 +681,7 @@ static void *xmalloc (size_t size)
 {
     register void *value = malloc (size);
     if (value == NULL)
-        fatal ("Out of memory. Need %ld more bytes.\n", (long int)size);
+        fatal (_(0,0,"Out of memory. Need %ld more bytes.\n"), (long int)size);
     return value;
 }
 
@@ -733,14 +739,14 @@ static char* get_os(void)
         case 0x5E:
             return "RxDOS";
         default:
-            return "An unknown operating system";
+            return _(1,0,"An unknown operating system");
 
         }
 }
 
 static EMSINFO *ems_error(void)
 {
-    printf("EMS INTERNAL ERROR.\n");
+    printf(_(5,0,"EMS INTERNAL ERROR.\n"));
     return NULL;
 }
 
@@ -937,7 +943,7 @@ static UPPERINFO *check_upper(MINFO *mlist)
             return upper;
             
         case -1:
-            fatal("SYSTEM MEMORY TRASHED! (int 21.5803 failure)\n");
+            fatal(_(0,1,"SYSTEM MEMORY TRASHED! (int 21.5803 failure)\n"));
 
 	}
 
@@ -950,7 +956,7 @@ static UPPERINFO *check_upper(MINFO *mlist)
             break;
         mlist=mlist->next;
         if (mlist==NULL) {
-            fatal("UMB Corruption: Chain doesn't reach top of low RAM at %dk. Last=0x%x.\n",
+            fatal(_(0,2,"UMB Corruption: Chain doesn't reach top of low RAM at %dk. Last=0x%x.\n"),
                 lastconseg/64, seg);
         }
     }
@@ -1115,7 +1121,7 @@ static MINFO *register_mcb(MINFO *mlist)
     mlist->name="";    
     mlist->owner=mcb->owner;
     mlist->size=mcb->size;
-    if (is_psp(mlist->seg) || mlist->owner == mlist->seg + 1)
+    if (mlist->owner && (is_psp(mlist->seg) || mlist->owner == mlist->seg + 1))
         program_mcb(mlist);
     else
         mlist=register_dos_mcb(mlist);
@@ -1150,7 +1156,7 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
         mlist=mlist->next;
     }
     if (cur_mcb->type != 'Z')
-        fatal("The MCB chain is corrupted (no Z MCB after last M MCB, but %c at seg 0x%x).\n",
+        fatal(_(0,3,"The MCB chain is corrupted (no Z MCB after last M MCB, but %c at seg 0x%x).\n"),
             cur_mcb->type, cur_mcb);
     mlist->seg = FP_SEG(cur_mcb);
     register_mcb(mlist);
@@ -1285,17 +1291,17 @@ static DEVINFO *make_dev_list(MINFO *mlist)
 static void print_normalized_ems_size(unsigned n)
 {
     if (n > 624) /* 9984 is the highest "K" value */
-	convert("%21sM ", (n + 32) / 64);
+	convert("%4sM ", (n + 32) / 64);
     else
-	convert("%21sK ", n * 16);
-    convert("(%s bytes)\n", n * 16384L);
+	convert("%4sK ", n * 16);
+    convert(_(1,2,"(%s bytes)\n"), n * 16384L);
 }
 
 static void print_normal_entry(char *text, unsigned long total, 
 			       unsigned long used, unsigned long free)
 {
-    printf("%-16s", text);
-    convert("%9sK ", total);
+    printf("%-17s", text);
+    convert("%8sK ", total);
     convert("%9sK ", used);
     convert("%9sK\n", free);
 }
@@ -1314,59 +1320,60 @@ static void normal_list(unsigned memfree, UPPERINFO *upper)
     memfree=round_seg_kb(memfree);
     memused=memory - memfree;
     printf("\n");
-    printf("Memory Type        Total       Used       Free\n");
-    printf("----------------  --------   --------   --------\n");
-    print_normal_entry("Conventional", memory, memused, memfree);
+    printf(_(2,0,"Memory Type        Total       Used       Free\n"));
+    printf(      "----------------  --------   --------   --------\n");
+    print_normal_entry(_(2,1,"Conventional"), memory, memused, memfree);
     if (upper) {
 	umbfree=round_seg_kb(upper->free);
 	umbtotal=round_seg_kb(upper->total);
     }
-    print_normal_entry("Upper", umbtotal, umbtotal-umbfree, umbfree);
+    print_normal_entry(_(2,2,"Upper"), umbtotal, umbtotal-umbfree, umbfree);
     reserved = 1024 - memory - umbtotal;
-    print_normal_entry("Reserved", reserved, reserved, 0);
+    print_normal_entry(_(2,3,"Reserved"), reserved, reserved, 0);
     xms_total_k = round_kb(xms->total);
-    print_normal_entry("Extended (XMS)", xms_total_k, xms_total_k - xms->free,
+    print_normal_entry(_(2,4,"Extended (XMS)"), xms_total_k, xms_total_k - xms->free,
 		       xms->free);
     printf("----------------  --------   --------   --------\n");
-    print_normal_entry("Total memory", 1024 + xms_total_k,
+    print_normal_entry(_(2,5,"Total memory"), 1024 + xms_total_k,
 		       1024 - memfree - umbfree + xms_total_k - xms->free,
 		       memfree + umbfree + xms->free);
     printf("\n");
-    print_normal_entry("Total under 1 MB", 1024 - reserved,
+    print_normal_entry(_(2,6,"Total under 1 MB"), 1024 - reserved,
 	   memused + umbtotal - umbfree, memfree + umbfree);
     printf("\n");
     if (ems != NULL) {
-	printf("Total Expanded (EMS)");
+	printf("%-36s",_(2,7,"Total Expanded (EMS)"));
 	print_normalized_ems_size(ems->size);
-	printf("Free Expanded (EMS) ");
+	printf("%-36s",_(2,8,"Free Expanded (EMS)"));
 	print_normalized_ems_size(ems->free);
         printf("\n");
     }
 
     largest_executable = mcb_largest();
 
-    printf("Largest executable program size%10uK ", round_seg_kb(largest_executable));
-    convert("(%7s bytes)\n", (ulong)largest_executable*16);
+    printf("%-38s%3uK", _(2,9,"Largest executable program size"), round_seg_kb(largest_executable));
+    convert(_(1,3," (%7s bytes)\n"), (ulong)largest_executable*16);
     if (upper != NULL) {
-	printf("Largest free upper memory block%10uK ", round_seg_kb(upper->largest));
-	convert("(%7s bytes)\n", (ulong)upper->largest*16);
+	printf("%-38s%3uK", _(2,10,"Largest free upper memory block"), round_seg_kb(upper->largest));
+	convert(_(1,3," (%7s bytes)\n"), (ulong)upper->largest*16);
     }
 
     if (dos_in_hma())
-        printf("%s is resident in the high memory area.\n", get_os());
+        printf(_(2,11,"%s is resident in the high memory area.\n"), get_os());
 }    
 
 static void print_entry(MINFO *entry)
 {
     static char *typenames[]= { "", "free", "system code", "system data",
-                                "program", "environment", "data area",
-				"reserved", "device driver", "data area", 
-				"IFS" };
+				"program", "environment", "data area",
+				"reserved", "device driver",
+				"data area", "IFS" };
     char *space = "";
     if (entry->type >= MT_DEVICE)
         space = " ";
     printf("  %04X%9lu   %s%-12s%-13s\n",
-           entry->seg, (ulong)entry->size*16, space, entry->name, typenames[entry->type]);
+           entry->seg, (ulong)entry->size*16, space, entry->name, 
+	   _(3,entry->type,typenames[entry->type]));
 }
 
 static void print_classify_value(const char *format, unsigned n)
@@ -1392,8 +1399,9 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
     unsigned total_conv, total_umb;
     unsigned convtopseg = biosmemory()*64;
 
-    printf("\nModules using memory below 1 MB:\n\n");
-    printf("  Name           Total           Conventional       Upper Memory\n");
+    printf(_(4,0,"\nModules using memory below 1 MB:\n\n"));
+    printf(_(4,1,
+	   "  Name           Total           Conventional       Upper Memory\n"));
     printf("  --------  ----------------   ----------------   ----------------\n");
     /* figure out code used by "SYSTEM" */
     ml = make_mcb_list(NULL);
@@ -1415,7 +1423,7 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
                 total_umb += size;
         }
     }
-    print_classify_entry("SYSTEM", total_conv, total_umb);
+    print_classify_entry(_(4,2,"SYSTEM"), total_conv, total_umb);
     for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
         if (ml->type > MT_FREE && !ml->classified) {
             total_conv = total_umb = 0;
@@ -1432,15 +1440,15 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
             print_classify_entry(ml->name, total_conv, total_umb);
         }
 
-    print_classify_entry("Free", convmemfree, umbmemfree);
+    print_classify_entry(_(4,3,"Free"), convmemfree, umbmemfree);
 }
 
 static void upper_list(void)
 {
     MINFO *ml;
 
-    printf("\nSegment   Size       Name         Type\n");
-    printf(  "------- --------  ----------  -------------\n");
+    printf(_(4,4,"\nSegment   Size       Name         Type\n"));
+    printf(        "------- --------  ----------  -------------\n");
     for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
         if (ml->type != MT_NONE && (ml->type < MT_ENV || ml->type == MT_DEVICE))
 		print_entry(ml);
@@ -1450,8 +1458,8 @@ static void full_list(void)
 {
     MINFO *ml;
     
-    printf("\nSegment   Size       Name         Type\n");
-    printf(  "------- --------  ----------  -------------\n");
+    printf(_(4,4,"\nSegment   Size       Name         Type\n"));
+    printf(        "------- --------  ----------  -------------\n");
     for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
         print_entry(ml);
 }
@@ -1460,8 +1468,8 @@ static void device_list(void)
 {
     DEVINFO *dl;
 
-    printf("\n   Address     Attr    Name       Program\n");
-    printf(  " -----------  ------ ----------  ----------\n");
+    printf(_(4,5,"\n   Address     Attr    Name       Program\n"));
+    printf(        " -----------  ------ ----------  ----------\n");
              /*  XXXX:XXXX    XXXX   XXXXXXXX    XXXXXXXX */
     for (dl=make_dev_list(make_mcb_list(NULL));dl!=NULL;dl=dl->next)
 	printf("  %p    %04X   %-8s    %-8s\n", dl->addr, dl->attr,
@@ -1472,35 +1480,35 @@ static void ems_list(void)
 {
     EMSINFO *ems;
     ushort i;
-    static char handlename_sys[] = "SYSTEM  ";
     static char handlename_other[9];
-    char *handlename;
+    char *handlename, *handlename_sys;
     static char format[] = "  %-20s";
     
     ems=check_ems();
     if (ems==NULL)
     {
-        printf("  EMS driver not installed in system.\n");
+        printf(_(5,1,"  EMS driver not installed in system.\n"));
     }
     else
     {
-	printf(format, "\nEMS driver version");
+	printf(format, _(5,2,"\nEMS driver version"));
 	printf("%1u.%1u\n", ems->vermajor, ems->verminor);
 	if (ems->frame) {
-	    printf(format, "EMS page frame");
+	    printf(format, _(5,3,"EMS page frame"));
 	    printf("%04X\n", ems->frame);
 	}
-	printf(format, "Total EMS memory");
-	printf("%lu bytes\n", ems->size * 16384L);
-	printf(format, "Free EMS memory");
-	printf("%lu bytes\n", ems->free * 16384L);
-	printf(format, "Total handles");
+	printf(format, _(5,4,"Total EMS memory"));
+	printf(_(1,1,"%lu bytes\n"), ems->size * 16384L);
+	printf(format, _(5,5,"Free EMS memory"));
+	printf(_(1,1,"%lu bytes\n"), ems->free * 16384L);
+	printf(format, _(5,6,"Total handles"));
 	printf("%u\n", ems->totalhandle);
-	printf(format, "Free handles");
+	printf(format, _(5,7,"Free handles"));
 	printf("%u\n", ems->freehandle);
 
-	printf("\n  Handle   Pages    Size       Name\n");
-	printf(  " -------- ------  --------   ----------\n");
+	printf(_(5,8,"\n  Handle   Pages    Size       Name\n"));
+	printf(        " -------- ------  --------   ----------\n");
+	handlename_sys = _(4,2,"SYSTEM");
         for (i=0;i<ems->usehandle;i++)
         {
             handlename = handlename_sys;
@@ -1511,8 +1519,8 @@ static void ems_list(void)
                     handlename = handlename_other;
                     memset(handlename, 0, 9);
                     ems_get_handle_name(ems->handles[i].handle, handlename);
+		    check_name(handlename, handlename, 8);
                 }
-                check_name(handlename, handlename, 8);
             }
 
             printf("%9u%7u%10lu%11s\n", ems->handles[i].handle,
@@ -1572,15 +1580,15 @@ static void xms_list(void)
 
     if (xms_drv==NULL)
 	{
-	printf("XMS driver not installed in system.\n");
+	printf(_(6,0,"XMS driver not installed in system.\n"));
 	return;
 	}
 
-    printf("\nTesting XMS memory ...\n");
+    printf(_(6,1,"\nTesting XMS memory ...\n"));
 
     lhandle = xms_query_a20();
     if (lhandle < 0) {
-	printf("XMS INTERNAL ERROR.\n");
+	printf(_(6,2,"XMS INTERNAL ERROR.\n"));
 	return;
     }
     xms->a20 = lhandle & 0xff;
@@ -1598,7 +1606,7 @@ static void xms_list(void)
     {
 	XMS_HANDLE_DESCRIPTOR far* descr = xmsHanTab->xmsHandleDescr;
 
-	printf("INT 2F AX=4309 supported\n");
+	printf(_(6,3,"INT 2F AX=4309 supported\n"));
 
         for (i=0;i<xmsHanTab->numbOfHandles;i++,descr++)
         {
@@ -1668,25 +1676,25 @@ static void xms_list(void)
 	xms_free((ushort)lhandle);
     }
 
-    printf(format, "XMS version");
+    printf(format, _(6,4,"XMS version"));
     printf("%u.%02u \t\t", xms->vermajor, xms->verminor);
-    printf(format, "XMS driver version");
+    printf(format, _(6,5,"XMS driver version"));
     printf("%u.%02u\n", xms->drv_vermajor, xms->drv_verminor);
-    printf(format, "HMA state");
-    printf("%s \t", (xms->hma) ? "exists" : "not exists");
-    printf(format, "A20 line state");
-    printf("%s\n", (xms->a20) ? "enabled" : "disabled");
-    printf(format, "Free XMS memory");
-    printf("%lu bytes\n", xms->free*1024L);
-    printf(format, "Largest free XMS block");
-    printf("%lu bytes\n", xms->largest*1024L);
-    printf(format, "Free handles");
+    printf(format, _(6,6,"HMA state"));
+    printf("%s \t", (xms->hma) ? _(6,7,"exists") : _(6,8,"does not exist"));
+    printf(format, _(6,9,"A20 line state"));
+    printf("%s\n", (xms->a20) ? _(6,10,"enabled") : _(6,11,"disabled"));
+    printf(format, _(6,12,"Free XMS memory"));
+    printf(_(1,1,"%lu bytes\n"), xms->free*1024L);
+    printf(format, _(6,13,"Largest free XMS block"));
+    printf(_(1,1,"%lu bytes\n"), xms->largest*1024L);
+    printf(format, _(6,14,"Free handles"));
     printf("%u\n", xms->freehandle);
     printf("\n");
     if (xms->handles != NULL)
     {
-	printf(" Block   Handle     Size     Locks\n");
-	printf("------- --------  --------  -------\n");
+	printf(_(6,15," Block   Handle     Size     Locks\n"));
+	printf(       "------- --------  --------  -------\n");
 	for (i=0, handle=xms->handles;handle!=NULL;handle=handle->next, i++)
 	    printf("%7u %8u  %8lu  %7u\n", i, handle->handle,
 		   handle->size, handle->locks);
@@ -1696,14 +1704,14 @@ static void xms_list(void)
     upper = check_upper(make_mcb_list(NULL));
     if (upper != NULL)
     {
-	printf(format, "Free upper memory");
-	printf("%lu bytes\n", upper->free*16L);
-	printf(format, "Largest upper block");
-	printf("%lu bytes\n", upper->largest*16L);
+	printf(format, _(6,16,"Free upper memory"));
+	printf(_(1,1,"%lu bytes\n"), upper->free*16L);
+	printf(format, _(6,17,"Largest upper block"));
+	printf(_(1,1,"%lu bytes\n"), upper->largest*16L);
     }
     else
     {
-	printf("Upper memory not available\n");
+	printf(_(6,18,"Upper memory not available\n"));
     }
 
 }
@@ -1743,6 +1751,8 @@ int main(int argc, char *argv[])
 
     argc = argc;
 
+    kittenopen("mem");
+
     while (argvi != NULL && (flags & F_HELP)==0) {
         char ch = *argvi++;
         if (ch == '-' || ch == '/')
@@ -1756,7 +1766,7 @@ int main(int argc, char *argv[])
             }
         }
         if (j == sizeof(optype)/sizeof(optype[0]))
-            fatal("unknown option: %s\nUse /? for help\n", argvi);
+            fatal(_(0,4,"unknown option: %s\nUse /? for help\n"), argvi);
 
         if (*++argvi == '\0')
         {
@@ -1776,20 +1786,22 @@ int main(int argc, char *argv[])
     if (flags & F_CLASSIFY)    classify_list(memfree, upper ? upper->free : 0);
         
     if (flags & F_HELP)
-	{
-	printf("FreeDOS MEM version 1.7\n"
-	       "Displays the amount of used and free memory in your system.\n\n"
-	       "Syntax: MEM [/E] [/F] [/C] [/D] [/U] [/X] [/P] [/?]\n"
-	       "  /E  Reports all information about Expanded Memory\n"
-	       "  /F  Full list of memory blocks\n"
-	       "  /C  Classify modules using memory below 1 MB\n"
-	       "  /D  List of device drivers currently in memory\n"
-	       "  /U  List of programs in conventional and upper memory\n"
-	       "  /X  Reports all information about Extended Memory\n"
-	       "  /P  Pauses after each screenful of information\n"
-	       "  /?  Displays this help message\n");
+      {
+	printf(_(7, 0, "FreeDOS MEM version %d.%d\n"),
+	       MEM_MAJOR, MEM_MINOR);
+	printf("%s\n\n%s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n",
+	_(7, 1, "Displays the amount of used and free memory in your system."),
+	_(7, 2, "Syntax: MEM [/E] [/F] [/C] [/D] [/U] [/X] [/P] [/?]"),
+	_(7, 3, "/E  Reports all information about Expanded Memory"),
+	_(7, 4, "/F  Full list of memory blocks"),
+	_(7, 5, "/C  Classify modules using memory below 1 MB"),
+	_(7, 6, "/D  List of device drivers currently in memory"),
+	_(7, 7, "/U  List of programs in conventional and upper memory"),
+	_(7, 8, "/X  Reports all information about Extended Memory"),
+	_(7, 9, "/P  Pauses after each screenful of information"),
+	_(7, 10, "/?  Displays this help message"));
 	return 1;
-	}
+      }
 
     normal_list(memfree, upper);
     return 0;
