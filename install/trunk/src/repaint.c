@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <conio.h>
 
+#include "box.h"
+
 void
 repaint_empty (void)
 {
@@ -29,11 +31,8 @@ repaint_empty (void)
 
   clrscr();
 
-  gotoxy (1, 1);
+  gotoxy (2, 1);
   cputs ("FreeDOS Install");
-  gotoxy (1, 2);
-  cputs ("___________________________________________________________________________");
 
-  gotoxy (1, 24);
-  cputs ("___________________________________________________________________________");
+  box (1, 2, 80, 24);
 }
