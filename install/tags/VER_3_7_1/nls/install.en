@@ -1,0 +1,28 @@
+0.0:FreeDOS Install - Copyright (C) 1998-2000 Jim Hall
+0.1:This is free software, and you are welcome to redistribute it
+0.2:under certain conditions; see the file COPYING for details.
+0.3:Install comes with ABSOLUTELY NO WARRANTY
+0.4:The Install program completed successfully.
+0.5:There were %u errors and %u non-fatal warnings.
+1.0:Press any key to continue
+1.1:Where are the install files? (where to install from?)
+1.2:Where will files be installed? (where to install to?)
+2.0:no
+2.1:yes
+2.2:Do you want to install this disk set? [yn] 
+2.3:Continue installing this disk? [yn]
+2.4:Install this package? [yn]
+3.0:Disk set: 
+3.2:Installing series: 
+3.3:Package: 
+3.4:Can't find data file for this install disk!
+3.5:Done installing this disk series.
+3.6:ERROR!  Failed to install REQUIRED package.
+3.7:WARNING!  Failed to install OPTIONAL package.
+3.8:You may not have the right install floppy in the drive.
+3.9:Double check that you have the right disk and try again.
+3.10:If you are installing other disk series, please insert
+3.11:disk #1 of the next series in the drive now.
+4.0:OPTIONAL
+4.1:REQUIRED
+4.2:SKIPPED
