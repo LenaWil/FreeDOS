@@ -1,0 +1,14 @@
+Begin3
+Title:          The FreeDOS Kernel
+Version:        1.1.24
+Entered-date:   2 Jun 2001
+Description:    The FreeDOS Kernel.
+Keywords:       kernel freedos dos msdos
+Author:         (developers)
+Maintained-by:  bart.oldeman@bristol.ac.uk
+Primary-site:   http://freedos.sourceforge.net
+Alternate-site: www.dosemu.org/~bart
+Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel
+Platforms:      dos dosemu
+Copying-policy: GPL
+End
