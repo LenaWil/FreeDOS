@@ -1,11 +1,11 @@
 # this is a DOS makefile
 
-CATS=C:\jhall\cats
-UZPHOME=C:\jhall\source\unz532
+CATS=C:\jhall\fdpm\fakecats
+UZPHOME=C:\jhall\fakeuzp
 
-CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)\include
+CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)
 LDFLAGS=
-LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\lib\catdb.lib
+LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\catdb.lib
 LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
 
 SRC=install.c
