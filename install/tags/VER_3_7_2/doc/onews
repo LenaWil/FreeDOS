@@ -1,0 +1,104 @@
+Changes to the Free-DOS Install program:
+
+Copyright (C) Jim Hall <jhall@freedos.org>
+
+3.62 - Maxime Vincent <max.vincent@skynet.be> has provided a fix to
+ the French language file, and a new NL (Dutch) file.
+
+3.61 - We've taken the FreeDOS install program out of CVS, since I now
+  do all the development on DOS (not under UNIX.)  In 3.61, Ilya
+  Vasilyev has provided a Russian translation.
+
+3.6 - A few changes made, the most notable being that I
+  removed the need for its own lib/conio library (under UNIX).  This
+  has been separated from the FreeDOS Install program, and is now its
+  own UNIX library called 'libconio'.  New install.fr translation.
+  Updated install.de file.
+
+3.5c - New install.pt translation by Luiz Passarelli
+<luizp@sti.com.br>.  New install.it translation by Alessio Palma
+<kht@iol.it>
+
+3.5b - New install.es file from Altair
+<aitor.sm@teleline.es>
+
+3.5a - New install.de file from Karsten Hilbert
+<Karsten.Hilbert@gmx.net>
+
+3.5 - Adds international support using UNIX-like catopen/catgets.
+
+3.2b - Used _makepath() instead of using sprintf() to build
+my paths by hand.  This is cleaner for Borland C.  This also fixes a
+bug for me where the install program would barf (under DOS) if you
+gave it a Dest Dir or Source Dir that contained a trailing backslash.
+_makepath() handles the trailing backslash just fine.
+
+3.2a - Added a bar graph to inst.c. Fixes for building on
+FreeDOS.  Works great.
+
+3.141 - Version "pi".  Minor hack to clean up a forgotten
+curses refresh().  Removed it from DOS using '#ifdef'.
+
+3.14 - More cleanup for the UI.  I hope I'm making this
+easier to use.  Complaints about the interface and what the user is
+supposed to do next are my top two complaints.  Also made a hack so
+that tabs in TXT and LSM files are displayed as a row of blank space
+(tabs were being displayed as a small circle, which is ASCII 09h.)
+
+3.13 - Cleaned up the UI quite a bit, and made the error
+messages more clear.  Fixed a few bugs that were reported on
+http://www.freedos.org/bugs/
+
+3.12 - Where the program is expecting a y/n response, the
+program now only accepts 'y' or 'n', case insensitive.  This was done
+by adding getch_yn(), and calling it in place of getch() where needed.
+
+3.11 - Added code to set the background to blue and the
+foreground to white, and to re-set the console colors back to the
+user's default colors when the program ends.
+
+3.1 - Major code cleanup to the Install program.  Basically
+re-wrote the entire install.c file, and re-worked the sources to use
+conio instead of curses.  This should make for faster execution on
+DOS, at the expense of slower execution (due to conio emulation
+through curses) on UNIX.  Dropped the `thecurse' compatibility library
+(provided curses emulation through conio) because it is no longer
+needed.  Program now uses .LSM files only for the description files.
+If you want to use another format, write your own.  Standardized the
+printed strings so that it will be easier to migrate to MSGLIB for
+internationization.  Due to the significant changes in the source
+tree, I moved all development to a new CVS project.
+
+3.0 - adds a curses-style interface.
+
+2.2 - Added support for LSM files.  Also generally cleaned
+up the code.  Removed the "Extractor List" functionality, since we are
+all using zip files now.  The INSTALL.TXT has been replaced with
+individual series.TXT files.  All .TXT files are plain text files.
+
+2.1 - added support for Debian description files
+
+2.0 - Incorporates the Unzip code into the source tree, so I
+don't need to use system().  Note that the Unzip code IS NOT INCLUDED
+in this source tree - you need to download it separately and compile
+UNZIP.LIB using the LIB\UNZIP\MSDOS\MAKEFILE.BC file (for Borland C.)
+Also added support for Red Hat Package Header files (.rph files) to
+print the description.
+
+1.2.1 - Added the proper files to support the FreeDOS
+"Orlando" distribution.
+
+1.2 - If the install program gets a fatal error (can't find
+UNZIP) then it will quit immediately with a message to that effect.
+Also will display an OEM.TXT file at the beginning.  Checks return
+codes for the system() function call on unzip.  Counts non-fatal
+errors, and report them at the end.  Checks for next disk number file
+before it looks for the Endfile.
+
+1.1 - Fixed a bug where entries from the TXT file are not
+printed if the case does not match.
+
+1.0 - First release of the Install program.  Uses a call to
+system() to extract the packages using 'unzip'.  Requires that the
+install.exe program be in the same directory as install.txt and
+install.dat.

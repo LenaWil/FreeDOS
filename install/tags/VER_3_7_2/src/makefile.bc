@@ -1,0 +1,61 @@
+# this is a DOS makefile
+
+CATS=..\lib\cats
+UZPHOME=..\lib\unzip
+CATPATH=..\lib\catpath
+
+CC=bcc
+CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)\include -I$(CATPATH)
+LDFLAGS=
+LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\lib\catdb.lib $(CATPATH)\catpath.lib
+LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
+
+SRC=install.c
+OBJ=install.obj
+
+SOURCES1=bargraph.c cat.c isfile.c inst.c pause.c cdp.c log.c
+SOURCES2=box.c getkey.c sel_list.c repaint.c unz.c globals.c cchndlr.c
+OBJECTS1=$(SOURCES1:.c=.obj)
+OBJECTS2=$(SOURCES2:.c=.obj)
+
+
+# targets:
+
+all: install.exe cat_file.exe
+	cd extra
+	make -f makefile.bc all
+	cd ..
+
+clean:
+	del *.obj
+	cd extra
+	make -f makefile.bc clean
+	cd ..
+
+realclean: clean
+	del *.exe
+	cd extra
+	make -f makefile.bc distclean
+	cd ..
+
+
+# the del cat.obj lines are due to cat.obj include or doesn't include a main()
+# depending on how CAT_FILE_PROGRAM is defined, install.exe's cat.obj should NOT
+# have a main, whereas when compiled standalone is should.
+cat_file.exe: cat.c
+	del cat.obj
+	echo $(CFLAGS) > cflags.tmp
+	echo $(LDLIBS1) > ldlibs1.tmp
+	$(CC) @cflags.tmp -DCAT_FILE_PROGRAM -ecat_file cat.c @ldlibs1.tmp 
+	del cat.obj
+	del *.tmp
+
+install.exe: $(OBJ) $(OBJECTS1) $(OBJECTS2)
+	echo $(CFLAGS) > cflags.tmp
+	echo $(LDLIBS1) > ldlibs1.tmp
+	echo $(LDLIBS2) > ldlibs2.tmp
+	echo $(OBJECTS1) > objects1.tmp
+	echo $(OBJECTS2) > objects2.tmp
+	$(CC) @cflags.tmp $(OBJ) @ldlibs1.tmp @ldlibs2.tmp \
+		@objects1.tmp @objects2.tmp
+	del *.tmp
