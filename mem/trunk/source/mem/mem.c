@@ -63,7 +63,7 @@
 #define biosmemory _bios_memsize
 #endif
 #ifdef __TURBOC__
-#pragma -a-
+#pragma option -a-
 #endif
 
 #include <stdio.h>
@@ -92,7 +92,7 @@ typedef unsigned long ulong;
 #define MT_ENV     5
 #define MT_DATA    6
 #define MT_FREE    7
-#define MT_MAP     8
+#define MT_IFS     8
 
 int num_lines = -1;
 
@@ -241,11 +241,11 @@ void far (*xms_drv)(void);
 
 #ifdef PRAGMAS
 
-ulong get_dos_version(void);
-#pragma aux get_dos_version = \
+uchar get_oem_number(void);
+#pragma aux get_oem_number = \
     "mov ax, 0x3000" \
     "int 0x21" \
-value [bx ax]
+value [bh]
 
 char dos_in_hma_(void);
 #pragma aux dos_in_hma_ = \
@@ -433,13 +433,13 @@ parm [es di] [bx ax] value [bx ax] modify [si];
 
 #else
 
-/* Get DOS version and OEM number. */
-static ulong get_dos_version(void)
+/* Get OEM number. */
+static uchar get_oem_number(void)
 {
     union REGS regs;
     regs.x.ax = 0x3000;
     intdos(&regs, &regs);
-    return ((ulong)regs.x.bx << 16) | regs.x.ax;
+    return regs.h.bh;
 }
 
 static char dos_in_hma_(void)
@@ -681,21 +681,12 @@ static void convert(char *format, ulong num)
 
 static char* get_os(void)
 {
-    BYTE OEMNumber, DOSMajor30;
-
-    ulong dosver = get_dos_version();
-    OEMNumber = dosver >> 24;
-    DOSMajor30 = dosver & 0xff;
-
-    if (DOSMajor30 == 0x00)
-        DOSMajor30 = 0x01;              /* DOS 1.x. */
-
-    switch (OEMNumber)
+    switch (get_oem_number())
         {
 	case 0xFD:
             return "FreeDOS";
         case 0xFF:
-	    if (DOSMajor30 <= 6)
+	    if (_osmajor <= 6)
                 return "MS-DOS";
             else
 		return "Windows";
@@ -975,7 +966,7 @@ static void check_name(char *dest, const char far *src, size_t length)
     dest[length] = '\0';
     while(length--) {
         unsigned char ch = (unsigned char)*src++;
-        *dest++ = (ch <= ' ' ? ' ' : toupper(ch));
+        *dest++ = (ch == '\0' ? '\0' : ch <= ' ' ? ' ' : toupper(ch));
     }
 }
 
@@ -985,6 +976,7 @@ static MINFO *search_sd(MINFO *mlist)
     SD_HEADER far *sd;
     static struct {char c; char *s;} sdtype[] = 
     {
+      { 'E', " DEVICE" },
       { 'F', " FILES" },
       { 'X', " FCBS" },
       { 'C', " BUFFERS" },
@@ -998,17 +990,22 @@ static MINFO *search_sd(MINFO *mlist)
     sd=MK_FP(begin, 0);
     while ((FP_SEG(sd) >= begin) && (FP_SEG(sd) < end))
         {
+        char type = sd->type;
         mlist->next = xcalloc(1, sizeof(MINFO));
 	mlist = mlist->next;
         mlist->seg=sd->start;
         mlist->size=sd->size;
         mlist->type=MT_DATA;
-        if (sd->type == 'D' || sd->type == 'I')
+        if (type == 'D' || (type == 'I' && _osmajor < 7))
             {
             mlist->name = xmalloc(10);
             mlist->name[0]=' ';
             check_name(&mlist->name[1], sd->name, 8);
-            mlist->type=MT_DEVICE;
+            mlist->type=sd->type == 'D' ? MT_DEVICE : MT_IFS;
+            }
+        else if (type == 'I')
+            {
+            mlist->name = mlist->size == 34 ? " SECTORBUF" : " DRIVEDATA";
             }
         else
             {
@@ -1298,9 +1295,9 @@ static void print_entry(MINFO *entry)
 {
     static char *typenames[]= { "", "system code", "system data",
                                 "program", "device driver", "environment",
-                                "data area", "free", "MT_MAP" };
+                                "data area", "free", "IFS" };
 
-    printf("  %04X%9lu   %-9s   %-13s\n",
+    printf("  %04X%9lu   %-12s%-13s\n",
            entry->seg, (ulong)entry->size*16, entry->name, typenames[entry->type]);
 }
 
@@ -1322,8 +1319,7 @@ static void full_list(void)
     printf("\nSegment   Size       Name         Type\n");
     printf(  "------- --------  ----------  -------------\n");
     for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
-/*        if (ml->type != MT_MAP) */
-            print_entry(ml);
+        print_entry(ml);
 }
 
 static void device_list(void)
