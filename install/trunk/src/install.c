@@ -119,7 +119,8 @@ main (int argc, char **argv)
 
   /* show the OEM file */
 
-  cat_file (OEM_FILE, 10 /* start line */, 10 /* no. lines */);
+  gotoxy (1, 10);
+  cat_file (OEM_FILE, 10 /* no. lines */);
 
   gotoxy (1, 25);
   s = catgets (cat, 1, 0, "Press any key to continue");
@@ -231,7 +232,9 @@ install_top (dat_t *dat_ary, int dat_count)
       /* usage is _makepath(newpath, drive, dir, name, ext) */
 
       _makepath (txtfile, "", "", dat_ary[i].name, "TXT");
-      cat_file (txtfile, 10 /* start line */, 10 /* no. lines */);
+
+      gotoxy (1, 10);
+      cat_file (txtfile, 10 /* no. lines */);
 
       gotoxy (1, 6);
       switch (dat_ary[i].rank)

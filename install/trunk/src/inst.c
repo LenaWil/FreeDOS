@@ -245,7 +245,8 @@ disk_install(const char *datfile, const char *descfile,
 
 	if (isfile (lsmfile))
 	  {
-	    cat_file (lsmfile, 8 /* start line */, 10 /* no. lines */);
+	    gotoxy (1, 8);
+	    cat_file (lsmfile, 10 /* no. lines */);
 	  }
       }
 
