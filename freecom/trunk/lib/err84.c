@@ -11,7 +11,7 @@
 #include "../err_fcts.h"
 #include "../strings.h"
 
-#undef error_alias_out_of_memory
-void error_alias_out_of_memory(void)
-{	displayError(TEXT_ERROR_ALIAS_OUT_OF_MEM);
+#undef error_invalid_parameter
+void error_invalid_parameter(const char * const str)
+{	displayError(TEXT_ERROR_INVALID_PARAMETER, str);
 }
