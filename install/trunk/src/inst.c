@@ -1,8 +1,6 @@
-/* $Id$ */
-
 /* Functions to install a disk series, or a package */
 
-/* Copyright (C) 1998,2000 Jim Hall <jhall@freedos.org> */
+/* Copyright (C) 1998,1999,2000,2001 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -22,7 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>			/* for system(), free() */
-#include <conio.h>			/* DOS Conio */
+#include <conio.h>			/* DOS conio */
 
 #include "catgets.h"			/* DOS catopen, catgets */
 #include "bargraph.h"			/* for bargraph() */
@@ -35,24 +33,21 @@
 #include "repaint.h"			/* for repaint() */
 #include "unz.h"			/* for UzpMain() */
 
-
-/* Globals (what a hack!) */
+/* Globals */
 
 extern nl_catd cat;			/* (install.c) language catalog */
 
-
-/* functions start here */
 
 inst_t
 set_install (const char *diskset, char *fromdir, char *destdir)
 {
   /* Variables */
 
+  char endfile[MAXPATH];		/* marks end of series */
+  char descfile[MAXPATH];		/* description file */
+  char datfile[MAXPATH];		/* current DAT file */
+  char ext[MAXEXT];			/* file extension */
   char *s;
-  char endfile[_MAX_PATH];		/* marks end of series */
-  char descfile[_MAX_PATH];		/* description file */
-  char datfile[_MAX_PATH];		/* current DAT file */
-  char ext[_MAX_EXT];			/* file extension */
   int disknum = 0;			/* current disk number */
   int ch;
   inst_t ret;				/* return: no. of errors,warnings */
@@ -60,18 +55,15 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 
   /* Create the filenames */
 
-  /* usage is _makepath(newpath, drive, dir, name, ext) */
-
-  _makepath (endfile, "", fromdir, diskset, "END");
-  _makepath (descfile, "", fromdir, diskset, "TXT");
+  fnmerge (endfile, "", fromdir, diskset, "END");
+  fnmerge (descfile, "", fromdir, diskset, "TXT");
 
   /* Print the name of the series we are working on */
 
   repaint_empty();
-  gotoxy (1, 3);
   s = catgets (cat, 3, 2, "Installing series: ");
+  gotoxy (1, 3);
   cputs (s);
-  gotoxy (1, 4);
   cputs (diskset);
 
   /* Install while we have disks to work from.  Since we will reach an
@@ -81,36 +73,32 @@ set_install (const char *diskset, char *fromdir, char *destdir)
   ret.warnings = 0;
 
   while (1) {
-    /* Set the DAT file name */
-
-    sprintf (ext, "%d", ++disknum);
-    _makepath (datfile, "", fromdir, diskset, ext);
-
-    /* Load the first disk */
-
     repaint_empty();
 
     /* First check that the datfile exists.  If it doesn't, check if
        the endfile was found. */
 
+    sprintf (ext, "%d", ++disknum);
+    fnmerge (datfile, "", fromdir, diskset, ext);
+
     if (!isfile (datfile)) {
       /* Does the endfile exist? */
 
       if (isfile (endfile)) {
-	gotoxy (1, 10);
 	s = catgets (cat, 3, 5, "Done installing this disk series.");
+	gotoxy (1, 10);
 	cputs (s);
 
-	gotoxy (1, 15);
 	s = catgets (cat, 3, 10, "If you are installing other disk series, please insert");
+	gotoxy (1, 15);
 	cputs (s);
 
-	gotoxy (1, 16);
 	s = catgets (cat, 3, 11, "disk #1 of the next series in the drive now.");
+	gotoxy (1, 16);
 	cputs (s);
 
-	gotoxy (1, 25);
 	s = catgets (cat, 1, 0, "Press any key to continue");
+	gotoxy (1, 25);
 	cputs (s);
 
 	getch();
@@ -122,23 +110,23 @@ set_install (const char *diskset, char *fromdir, char *destdir)
          next disk. */
 
       do {
-	gotoxy (1, 10);
 	s = catgets (cat, 3, 4, "Can't find data file for this install disk!");
+	gotoxy (1, 10);
 	cputs (s);
 
 	gotoxy (1, 11);
 	cputs (datfile);
 
-	gotoxy (1, 15);
 	s = catgets (cat, 3, 8, "You may not have the right install floppy in the drive.");
+	gotoxy (1, 15);
 	cputs (s);
 
-	gotoxy (1, 16);
 	s = catgets (cat, 3, 9, "Double check that you have the right disk and try again.");
+	gotoxy (1, 16);
 	cputs (s);
 
-	gotoxy (1, 25);
 	s = catgets (cat, 2, 3, "Continue installing this disk? [yn]");
+	gotoxy (1, 25);
 	cputs (s);
 
 	ch = getch_yn();
@@ -148,8 +136,8 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 	    /* user has decided to quit this series */
 	    return (ret);
 	  }
-      } while (!isfile (datfile));
 
+      } while (!isfile (datfile));
     } /* if no datfile */
 
     /* Install files from this disk */
@@ -164,13 +152,15 @@ inst_t
 disk_install(const char *datfile, const char *descfile,
 	     char *fromdir, char *destdir)
 {
+  char lsmfile[MAXPATH];		/* Linux software map file */
   char *s;
-  char lsmfile[_MAX_PATH];		/* Linux software map file */
+
+  int dat_size = 30;			/* malloc size of the dat array */
+  int dat_count;			/* size of the dat array */
   int ret;
   int ch;
   int i;
-  int dat_size = 30;			/* malloc size of the dat array */
-  int dat_count;			/* size of the dat array */
+
   dat_t *dat_ary;			/* the DAT array */
   inst_t this;				/* return: no. of errors,warnings */
 
@@ -187,8 +177,8 @@ disk_install(const char *datfile, const char *descfile,
       fprintf (stderr, "Error!\n");
       fprintf (stderr, "Unable to allocate enough memory for install floppy data file!\n");
 
-      gotoxy (1, 25);
       s = catgets (cat, 1, 0, "Press any key to continue");
+      gotoxy (1, 25);
       cputs (s);
 
       getch();
@@ -201,8 +191,8 @@ disk_install(const char *datfile, const char *descfile,
       fprintf (stderr, "Error!\n");
       fprintf (stderr, "The install floppy data file is empty!\n");
 
-      gotoxy (1, 25);
       s = catgets (cat, 1, 0, "Press any key to continue");
+      gotoxy (1, 25);
       cputs (s);
 
       getch();
@@ -231,7 +221,7 @@ disk_install(const char *datfile, const char *descfile,
 
     /* Generate the lsmfile name */
 
-    _makepath (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
+    fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
 
     if (isfile (lsmfile))
       {
@@ -241,7 +231,7 @@ disk_install(const char *datfile, const char *descfile,
       {
 	/* no lsm file. try it again with a plain txt file */
 
-	_makepath (lsmfile, "", fromdir, dat_ary[i].name, "TXT");
+	fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "TXT");
 
 	if (isfile (lsmfile))
 	  {

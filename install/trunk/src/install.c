@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>			/* for malloc */
+#include <string.h>			/* for strcmp */
 #include <conio.h>			/* DOS conio */
 
 #include "catgets.h"			/* DOS catopen, catgets */
@@ -54,6 +55,7 @@ main (int argc, char **argv)
   char *s;
   int dat_count;			/* size of the dat array */
   int dat_size = INIT_DAT_SIZE;		/* malloc size of the dat array */
+  int i;
 
   dat_t *dat_ary;			/* the dat file array */
   inst_t ret;				/* no. of errors, warnings */
