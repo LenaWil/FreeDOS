@@ -22,21 +22,23 @@
 #include <stdlib.h>			/* for system(), free() */
 #include <conio.h>			/* DOS conio */
 
-#include "catgets.h"			/* DOS catopen, catgets */
+#include "globals.h"			/* cat, yes, no, #include "catgets.h" */
 #include "bargraph.h"			/* for bargraph() */
-#include "box.h"			/* box() */
-#include "dat.h"			/* data file functions */
-#include "cat.h"			/* for cat_file() */
-#include "inst.h"			/* for this file */
+#include "box.h"				/* box() */
+#include "dat.h"				/* data file functions */
+#include "cat.h"				/* for cat_file() */
+#include "inst.h"				/* for this file */
 #include "isfile.h"			/* for isfile() */
-#include "lsm.h"			/* Linux LSM files */
+#include "lsm.h"				/* Linux LSM files */
 #include "repaint.h"			/* for repaint() */
 #include "sel_list.h"			/* select_yn() */
-#include "unz.h"			/* for UzpMain() */
+#include "unz.h"				/* for UzpMain() */
+#include "catpath.h"			/* catpath() - a _makepath clone */
+#include "pause.h"			/* for pause() */
+#include "text.h"				/* All strings displayed */
+#include "log.h"				/* for log() */
+#include "cchndlr.h"			/* for reregisterSIGINTHandler() */
 
-/* Globals */
-
-extern nl_catd cat;			/* (install.c) language catalog */
 
 
 inst_t
@@ -44,10 +46,10 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 {
   /* Variables */
 
-  char endfile[_MAX_PATH];		/* marks end of series */
-  char descfile[_MAX_PATH];		/* description file */
-  char datfile[_MAX_PATH];		/* current DAT file */
-  char ext[_MAX_EXT];			/* file extension */
+  char endfile[CP_MAXPATH];		/* marks end of series */
+  char descfile[CP_MAXPATH];		/* description file */
+  char datfile[CP_MAXPATH];		/* current DAT file */
+  char ext[CP_MAXPATH];			/* file extension */
   char *s;
   int disknum = 0;			/* current disk number */
   int ch;
@@ -56,16 +58,20 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 
   /* Create the filenames */
 
-  _makepath (endfile, "", fromdir, diskset, "END");
-  _makepath (descfile, "", fromdir, diskset, "TXT");
+  catpath (endfile, "", fromdir, diskset, "END");
+  /* catpath (descfile, "", fromdir, diskset, "TXT"); */
+  catpath (descfile, "", fromdir, diskset, "");
+
 
   /* Print the name of the series we are working on */
 
   repaint_empty();
-  s = catgets (cat, 3, 2, "Installing series: ");
+  s = catgets (cat, SET_PKG_GENERAL, MSG_INSTSERIES, MSG_INSTSERIES_STR);
   gotoxy (2, 3);
   cputs (s);
   cputs (diskset);
+  log("<diskset name=\"%s\" >\n", diskset);
+
 
   /* Install while we have disks to work from.  Since we will reach an
      exit condition within the loop, we use an infinite loop here. */
@@ -80,29 +86,26 @@ set_install (const char *diskset, char *fromdir, char *destdir)
        the endfile was found. */
 
     sprintf (ext, "%d", ++disknum);
-    _makepath (datfile, "", fromdir, diskset, ext);
+    catpath (datfile, "", fromdir, diskset, ext);
 
     if (!isfile (datfile)) {
       /* Does the endfile exist? */
 
       if (isfile (endfile)) {
-	s = catgets (cat, 3, 5, "Done installing this disk series.");
+	s = catgets (cat, SET_PKG_GENERAL, MSG_INSTSERIESDONE, MSG_INSTSERIESDONE_STR);
 	gotoxy (2, 10);
 	cputs (s);
 
-	s = catgets (cat, 3, 10, "If you are installing other disk series, please insert");
+	s = catgets (cat, SET_PKG_GENERAL, MSG_NEXTSERIESDISK, MSG_NEXTSERIESDISK_STR);
 	gotoxy (2, 15);
 	cputs (s);
 
-	s = catgets (cat, 3, 11, "disk #1 of the next series in the drive now.");
+	s = catgets (cat, SET_PKG_GENERAL, MSG_NEXTSERIESDISK2, MSG_NEXTSERIESDISK2_STR);
 	gotoxy (2, 16);
 	cputs (s);
 
-	s = catgets (cat, 1, 0, "Press any key to continue");
-	gotoxy (2, 25);
-	cputs (s);
-
-	getch();
+      log("</diskset>\n\n");
+	pause();
 	return (ret);
       }
 
@@ -111,27 +114,40 @@ set_install (const char *diskset, char *fromdir, char *destdir)
          next disk. */
 
       do {
-	s = catgets (cat, 3, 4, "Can't find data file for this install disk!");
-	gotoxy (2, 10);
-	cputs (s);
 
-	gotoxy (2, 11);
-	cputs (datfile);
+      /* If this is the 1st disk in the series, then instead of assuming wrong disk
+         prompt for them to insert the disk. */
+      if (disknum == 1)
+      {
+        s = catgets (cat, SET_PKG_GENERAL, MSG_INSERT1STDISK, MSG_INSERT1STDISK_STR);
+	  gotoxy (2, 10);
+        cprintf(s, diskset);
+      }
+      else 
+      {
+	  s = catgets (cat, SET_PKG_GENERAL, MSG_MISSINGDATAFILE, MSG_MISSINGDATAFILE_STR);
+	  gotoxy (2, 10);
+	  cputs (s);
 
-	s = catgets (cat, 3, 8, "You may not have the right install floppy in the drive.");
-	gotoxy (2, 15);
-	cputs (s);
+	  gotoxy (2, 11);
+	  cputs (datfile);
 
-	s = catgets (cat, 3, 9, "Double check that you have the right disk and try again.");
-	gotoxy (2, 16);
-	cputs (s);
+	  s = catgets (cat, SET_PKG_GENERAL, MSG_WRONGFLOPPY, MSG_WRONGFLOPPY_STR);
+	  gotoxy (2, 15);
+	  cputs (s);
 
-	s = catgets (cat, 2, 3, "Continue installing this disk? [yn]");
-	ch = select_yn (s, "Yes", "No");
+	  s = catgets (cat, SET_PKG_GENERAL, MSG_STILLWRONGFLOPPY, MSG_STILLWRONGFLOPPY_STR);
+	  gotoxy (2, 16);
+	  cputs (s);
+      }
+
+	s = catgets (cat, SET_PROMPT_YN, MSG_CONTINSTDISK, MSG_CONTINSTDISK_STR);
+	ch = select_yn (s, yes, no, NULL, NULL);
 
 	if (ch)
 	  {
 	    /* user has decided to quit this series */
+          log("</diskset>\n\n");
 	    return (ret);
 	  }
 
@@ -140,26 +156,30 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 
     /* Install files from this disk */
 
+    log("<disk name=\"%s\" number=\"%i\" >\n", diskset, disknum);
     this = disk_install (datfile, descfile, fromdir, destdir);
+    log("</disk>\n");
     ret.errors += this.errors;
     ret.warnings += this.warnings;
   } /* while (1) */
 }
-
+
 inst_t
 disk_install(const char *datfile, const char *descfile,
 	     char *fromdir, char *destdir)
 {
-  char lsmfile[_MAX_PATH];		/* Linux software map file */
+  char lsmfile[CP_MAXPATH];		/* Linux software map file */
   char *s;
 
   int dat_size = 30;			/* malloc size of the dat array */
-  int dat_count;			/* size of the dat array */
+  int dat_count;				/* size of the dat array */
   int ret;
   int ch;
   int i;
 
-  dat_t *dat_ary;			/* the DAT array */
+  int pkg_yesToAll = 0;			/* Assume default yes to all = not specified */
+
+  dat_t *dat_ary;				/* the DAT array */
   inst_t this;				/* return: no. of errors,warnings */
 
   /* Initialize variables */
@@ -172,28 +192,29 @@ disk_install(const char *datfile, const char *descfile,
   dat_ary = malloc (sizeof (dat_t) * dat_size);
   if (dat_ary == NULL)
     {
-      fprintf (stderr, "Error!\n");
-      fprintf (stderr, "Unable to allocate enough memory for install floppy data file!\n");
+      s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
+      fprintf (stderr, s);
+      log("<error msg=\"%s\" />\n", s);
+      s = catgets (cat, SET_ERRORS, MSG_ERRALLOCMEMFDF, MSG_ERRALLOCMEMFDF_STR);
+      fprintf (stderr, s);
+      log("<error msg=\"%s\" />\n", s);
 
-      s = catgets (cat, 1, 0, "Press any key to continue");
-      gotoxy (2, 25);
-      cputs (s);
-
-      getch();
+	pause();
       return (this);
     }
 
   dat_count = dat_read (datfile, dat_ary, dat_size);
   if (dat_count < 1)
     {
-      fprintf (stderr, "Error!\n");
-      fprintf (stderr, "The install floppy data file is empty!\n");
+      s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
+      fprintf (stderr, s);
+      log("<error msg=\"%s\" />\n", s);
+      s = catgets (cat, SET_ERRORS, MSG_ERREMPTYFLOPPYDATAFILE, MSG_ERREMPTYFLOPPYDATAFILE_STR);
+      fprintf (stderr, s);
+      log("<error msg=\"%s\" />\n", s);
 
-      s = catgets (cat, 1, 0, "Press any key to continue");
-      gotoxy (2, 25);
-      cputs (s);
 
-      getch();
+	pause();
       free (dat_ary);
       return (this);
     }
@@ -205,14 +226,14 @@ disk_install(const char *datfile, const char *descfile,
 
     repaint_empty();
 
-    box (14, 17, 66, 19);
-    gotoxy (15, 18);
+    box (14, 16, 66, 18);
+    gotoxy (15, 17);
     bargraph (i, dat_count, 50 /* width */);
 
     /* Print the package name */
 
     gotoxy (2, 5);
-    s = catgets (cat, 3, 3, "Package: ");
+    s = catgets (cat, SET_PKG_GENERAL, MSG_PACKAGE, MSG_PACKAGE_STR);
     cputs (s);
 
     cputs (dat_ary[i].name);
@@ -221,7 +242,7 @@ disk_install(const char *datfile, const char *descfile,
 
     /* Generate the lsmfile name */
 
-    _makepath (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
+    catpath (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
 
     if (isfile (lsmfile))
       {
@@ -231,7 +252,7 @@ disk_install(const char *datfile, const char *descfile,
       {
 	/* no lsm file. try it again with a plain txt file */
 
-	_makepath (lsmfile, "", fromdir, dat_ary[i].name, "TXT");
+	catpath (lsmfile, "", fromdir, dat_ary[i].name, "");
 
 	if (isfile (lsmfile))
 	  {
@@ -248,7 +269,8 @@ disk_install(const char *datfile, const char *descfile,
     case 'N':
       /* Do not install */
 
-      s = catgets (cat, 4, 2, "SKIPPED");
+      log("<package name=\"%s\" choice=\"n\" />\n", dat_ary[i].name);
+      s = catgets (cat, SET_PKG_NEED, MSG_SKIPPED, MSG_SKIPPED_STR);
       cputs (s);
       break;
 
@@ -256,16 +278,20 @@ disk_install(const char *datfile, const char *descfile,
     case 'Y':
       /* Always install */
 
-      s = catgets (cat, 4, 1, "REQUIRED");
+      log("<package name=\"%s\" choice=\"y\" />\n", dat_ary[i].name);
+      s = catgets (cat, SET_PKG_NEED, MSG_REQUIRED, MSG_REQUIRED_STR);
       cputs (s);
 
       ret = unzip_file (dat_ary[i].name, fromdir, destdir);
 
+      reregisterSIGINTHandler(); /* unzip installs its own SIGINT handler */
+
       if (ret != 0) {
 	/* Print an error message */
 
-	s = catgets (cat, 3, 6, "ERROR!  Failed to install REQUIRED package.");
+	s = catgets (cat, SET_PKG_GENERAL, MSG_ERRREQPKG, MSG_ERRREQPKG_STR);
 	cputs (s);
+      log("<error msg=\"%s\" />\n", s);
 
 	/* Return an error */
 
@@ -273,11 +299,12 @@ disk_install(const char *datfile, const char *descfile,
 
 	/* Does the user want to continue anyway? */
 
-	s = catgets (cat, 2, 3, "Continue installing this disk? [yn]");
-	ch = select_yn(s, "Yes", "No");
+	s = catgets (cat, SET_PROMPT_YN, MSG_CONTINSTDISK, MSG_CONTINSTDISK_STR);
+	ch = select_yn(s, yes, no, NULL, NULL);
 
 	if (ch)
 	  {
+          log("<abort msg=\"User choose not to continue after error.\" />\n");
 	    return (this);
 	  }
       }
@@ -286,38 +313,52 @@ disk_install(const char *datfile, const char *descfile,
     default:
       /* Optional */
 
-      s = catgets (cat, 4, 0, "OPTIONAL");
+      s = catgets (cat, SET_PKG_NEED, MSG_OPTIONAL, MSG_OPTIONAL_STR);
       cputs (s);
 
       /* Ask the user if you want to install it */
 
-      s = catgets (cat, 2, 4, "Install this package? [yn]");
-      ch = select_yn (s, "Yes", "No");
-
-      if (ch)
+      s = catgets (cat, SET_PROMPT_YN, MSG_INSTALLPKG, MSG_INSTALLPKG_STR);
+      if (!pkg_yesToAll)
 	{
+	      ch = select_yn (s, yes, no, 
+                            catgets (cat, SET_PROMPT_YN, MSG_YESTOALL, MSG_YESTOALL_STR),
+                            NULL);
+		if (ch == 2) pkg_yesToAll = 1;
+	}
+
+      if (pkg_yesToAll || ch==0) /* Yes or YesToAll */
+	{
+        log("<package name=\"%s\" choice=\"y\" />\n", dat_ary[i].name);
 	  ret = unzip_file (dat_ary[i].name, fromdir, destdir);
+
+        reregisterSIGINTHandler(); /* unzip installs its own SIGINT handler */
 
 	  if (ret != 0)
 	    {
 	      /* Print a warning message */
 
 	      gotoxy (2, 23);
-	      s = catgets (cat, 3, 7, "WARNING!  Failed to install OPTIONAL package.");
+	      s = catgets (cat, SET_PKG_GENERAL, MSG_WARNOPTPKG, MSG_WARNOPTPKG_STR);
 	      cputs (s);
+            log("<warning msg=\"%s\" />\n", s);
 
-	      gotoxy (2, 25);
-	      s = catgets (cat, 1, 0, "Press any key to continue");
-	      cputs (s);
-
-	      getch();
+		pause();
 	      this.warnings++;
 	    }
 	}
+      else /* user selected no */
+          log("<package name=\"%s\" choice=\"n\" />\n", dat_ary[i].name);
       break;
 
     } /* switch */
   } /* for */
+
+  /* Print the screen and 100% complete progress bargraph */
+  repaint_empty();
+  box (14, 16, 66, 18);
+  gotoxy (15, 17);
+  bargraph (1, 1, 50 /* width */);
 
   /* Free memory for this disk */
 

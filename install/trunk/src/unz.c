@@ -23,16 +23,13 @@
 #include <stdio.h>			/* for system(), free() */
 
 #include "unzip.h"			/* for UzpMain() */
-
-/* Symbolic constants */
-
-#define PATH_LEN 128			/* length of dir path */
+#include "catpath.h"                /* CP_MAXPATH and catpath (a _makepath replacement) */
 
 
 int
 unzip_file (const char *zipfile, const char *fromdir, char *destdir)
 {
-  char full_zipfile[_MAX_PATH];		/* path to a zipfile */
+  char full_zipfile[CP_MAXPATH];		/* path to a zipfile */
   int ret;
 
   /* -d will extract into a given path.  -o will force overwrite if
@@ -49,7 +46,7 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
   /* .zip extension not needed as Unzip will add it if not there.  The
      DAT file may also have the .zip extension anyway. */
 
-  _makepath (full_zipfile, "", fromdir, zipfile, "");
+  catpath (full_zipfile, "", fromdir, zipfile, "");
 
   /* set 3=full_zipfile and 5=destdir */
 

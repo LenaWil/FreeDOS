@@ -23,16 +23,19 @@
 #include <conio.h>
 
 #include "box.h"
+#include "globals.h"	/* for cat - catalog id - and #include "catgets.h" */
+#include "text.h"       /* for strings printed */
 
 void
 repaint_empty (void)
 {
-  /* Clear the screen and repaint an empty screen for the installer */
+  char *s = catgets (cat, SET_GENERAL, MSG_TITLE, MSG_TITLE_STR);
 
+  /* Clear the screen and repaint an empty screen for the installer */
   clrscr();
 
   gotoxy (2, 1);
-  cputs ("FreeDOS Install");
+  cputs (s);
 
   box (1, 2, 80, 24);
 }

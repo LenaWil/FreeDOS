@@ -20,6 +20,7 @@
 
 
 #include <conio.h>
+#include <signal.h> /* for raise() and SIGINT */
 #include "getkey.h"
 
 /* getkey() will scan a key from the keyboard using getch().  If the
@@ -34,6 +35,10 @@ getkey (void)
 
   ret.key = getch();
   ret.extended = ( ret.key ? 0 : getch() );
+
+  /* Check for ctrl-c and signal if pressed */
+  if (ret.key == 3 && ret.extended == 0)
+     raise(SIGINT);
 
   return (ret);
 }

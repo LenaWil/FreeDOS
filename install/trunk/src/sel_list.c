@@ -39,8 +39,10 @@
 
 
 #include <conio.h>			/* console i/o */
+#include <stdlib.h>			/* NULL */
+#include <string.h>			/* strlen() */
 #include "getkey.h"
-
+#include "box.h"				/* box() */
 
 /* Additional key definitions */
 
@@ -104,13 +106,32 @@ select_list (int optc, char *optv[])
   return (i);
 }
 
+/* If yesToAll and/or noToAll are NULL, then those prompts not displayed */
 int
-select_yn (char *prompt, char *yes, char *no)
+select_yn (char *prompt, char *yes, char *no, char *yesToAll, char *noToAll)
 {
   int len;
   int ret;
-  int x0, x1;
-  char *yesno[2];
+  int x0, x1, xPrompt;
+  int listSize;
+  char *yesno[4];
+
+  /* fill in yes/no/yestoall/notoall struct & get its size */
+
+  listSize = 2;
+  yesno[0] = yes;
+  yesno[1] = no;
+  if (yesToAll != NULL)
+  {
+    yesno[listSize] = yesToAll;
+    listSize++;
+  }
+  if (noToAll != NULL)
+  {
+    yesno[listSize] = noToAll;
+    listSize++;
+  }
+
 
   /* Draw a box */
 
@@ -128,18 +149,17 @@ select_yn (char *prompt, char *yes, char *no)
       x1 = 80;
     }
 
-  box (x0, 20, x1, 25);
+  /* at 20 for yes/no, 19 for yes/no/yestoall or yes/no/notoall, 18 for all 4 */
+  box (x0, 22-listSize, x1, 25);
 
   /* Display the prompt, and do the y/n selection */
 
-  gotoxy (x0 + 1, 21);
+  gotoxy (x0 + 1, 23-listSize);
   cputs (prompt);
 
-  yesno[0] = yes;
-  yesno[1] = no;
 
-  gotoxy (40, 22);
-  ret = select_list (2, yesno);
+  gotoxy (35, 24-listSize);
+  ret = select_list (listSize, yesno);
 
   return (ret);
 }
