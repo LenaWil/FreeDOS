@@ -1,0 +1,9 @@
+This is the HELP file for the FreeDOS Install program
+
+Copyright (C) 1998-1999 Jim Hall, <jhall1@isd.net>
+
+
+* there are no command line options for the Install program.  To run
+  it, just type:
+
+  install.exe

@@ -1,0 +1,14 @@
+This is the README for the _makepath() library of functions.
+
+The library will include calls for _makepath(), _splitpath(), and
+_fullpath(), all of which are functions provided by Borland C (DOS).
+
+Actually, _fullpath() is not done yet.  I probably won't finish it up
+until I need it.
+
+The _makepath() library of functions is intended as a compatibility
+library for UNIX, so that you can compile DOS programs that use
+_makepath() on UNIX systems.
+
+-Jim Hall
+<jhall1@isd.net>

@@ -1,0 +1,19 @@
+# this is a DOS makefile
+
+CFLAGS=-ml -DNDEBUG -I..\include
+
+all: libs dat.obj
+
+libs:
+	cd lsm
+	make -f makefile.bc all
+	cd ..
+
+clean: libclean
+	del *.obj
+	del *.lib
+
+libclean:
+	cd lsm
+	make -f makefile.bc clean
+	cd ..
