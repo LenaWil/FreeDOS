@@ -1009,7 +1009,6 @@ static MINFO *search_sd(MINFO *mlist)
             mlist->name[0]=' ';
             check_name(&mlist->name[1], sd->name, 8);
             mlist->type=MT_DEVICE;
-            break;
             }
         else
             {
@@ -1019,7 +1018,6 @@ static MINFO *search_sd(MINFO *mlist)
                 if (sdtype[i].c == sd->type)
                     {
                     mlist->name = sdtype[i].s;
-                    break;
                     }
                 }
             }
@@ -1028,7 +1026,7 @@ static MINFO *search_sd(MINFO *mlist)
     return(mlist);
 }
 
-static void register_dos_mcb(MINFO *mlist)
+static MINFO *register_dos_mcb(MINFO *mlist)
 {
     if (!mlist->owner) {
         mlist->name="";
@@ -1043,6 +1041,7 @@ static void register_dos_mcb(MINFO *mlist)
             mlist->type=MT_SYSCODE;
         }
     }
+    return mlist;
 }
 
 static void program_mcb(MINFO *mlist)
@@ -1059,10 +1058,11 @@ static void program_mcb(MINFO *mlist)
 static MINFO *register_mcb(MINFO *mlist)
 {
     MCB far *mcb = MK_FP(mlist->seg, 0);
+    MINFO *mlist2;
     
     mlist->owner=mcb->owner;
     mlist->size=mcb->size;
-    register_dos_mcb(mlist);
+    mlist2=register_dos_mcb(mlist);
     if (mlist->seg <= biosmemory()*64 - 1)
         {
         if (is_psp(mlist->seg))
@@ -1070,10 +1070,10 @@ static MINFO *register_mcb(MINFO *mlist)
         }
     else
         {
-        if (mcb->owner > 0x0008)
+        if (mlist->owner > 0x0008)
             program_mcb(mlist);
         }
-    return mlist;
+    return mlist2;
 }
 
 static MINFO *make_mcb_list(unsigned *convmemfree)
