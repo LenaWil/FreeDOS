@@ -19,17 +19,35 @@
 #include <string.h> /* strchr() */
 #include "dir.h"    /* DIR_CHAR and mkdir() */
 
+#ifndef ALT_DIR_CHAR
+#define STRCHR(str) strchr(destdir, DIR_CHAR)
+#else
+/* Return next occurance of either directory separator character. */
+char *STRCHR(char *str)
+{
+  char *p1, *p2;
+  p1 = strchr(str, DIR_CHAR);
+  p2 = strchr(str, ALT_DIR_CHAR);
+  if (p1 != NULL & p2 != NULL)
+    return (p1 < p2)?p1:p2;
+  else
+    return (p1 == NULL)?p2:p1;
+}
+#endif
+
 /* Make sure destination directory exists (or create if not)       */
 /* This fixes bug, where if path does not exist then install fails */
 void createdestpath(char *destdir)
 {
-  char *p = strchr(destdir, DIR_CHAR); /* search for 1st dir separator */
+  char dirChar;
+  char *p = STRCHR(destdir); /* search for 1st dir separator */
   while (p)
   {
+    dirChar = *p;
     *p = '\0';       /* mark as temp end of string */
     mkdir(destdir);  /* create, ignore errors, as dir may exist */
-    *p = DIR_CHAR;   /* restore dir separator */
-    p = strchr(p+1, DIR_CHAR); /* look for next dir separator */
+    *p = dirChar;    /* restore dir separator */
+    p = STRCHR(p+1); /* look for next dir separator */
   }
   mkdir(destdir);    /* create last portion of dir if didn't end in slash */
 }
