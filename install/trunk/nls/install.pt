@@ -9,9 +9,9 @@
 1.2:Onde os arquivos deverão ser instalados? (instalando para?)
 2.0:Não
 2.1:Sim
-2.2:Você quer instalar este grupo de discos? [ sn ]
-2.3:Continuar instalando este disco? [ sn ]
-2.4:Instalar este pacote? [ sn ]
+2.2:Você quer instalar este grupo de discos?
+2.3:Continuar instalando este disco?
+2.4:Instalar este pacote?
 3.0:Disco número:
 3.1:Intale em top-level
 3.2:Instalando a série:

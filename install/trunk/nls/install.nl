@@ -9,9 +9,9 @@
 1.2:waar moeten de installatiebestanden worden geinstalleerd? (waar installeren?)
 2.0:nee
 2.1:ja
-2.2:Wil u deze set disketten installeren? [jn] 
-2.3:Doorgaan met installeren? [jn]
-2.4:dit pakket installeren? [jn]
+2.2:Wil u deze set disketten installeren?
+2.3:Doorgaan met installeren?
+2.4:dit pakket installeren?
 3.0:set disketten: 
 3.1:in de installatie van hoog niveau.
 3.2:installatie van de  s‚ries: 
