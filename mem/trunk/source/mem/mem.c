@@ -54,16 +54,27 @@
       - added support for '-' options prefix.
 */
 
-#pragma pack(1)   /*  Be sure to compile with word alignment OFF !!! */
+/*  Be sure to compile with word alignment OFF !!! */
+#if defined(_MSC_VER)
+#define asm __asm
+#if _MSC_VER >= 700
+#pragma warning(disable:4103)
+#endif
+#pragma pack(1)
+#elif defined(_QC) || defined(__WATCOM__)
+#pragma pack(1)
+#elif defined(__ZTC__)
+#pragma ZTC align 1
+#elif defined(__TURBOC__) && (__TURBOC__ > 0x202)
+#pragma option -a-
+#endif
+
 #ifdef __WATCOMC__
 #define PRAGMAS
 #define getvect _dos_getvect
 #define outportb outp
 #define inportb inp
 #define biosmemory _bios_memsize
-#endif
-#ifdef __TURBOC__
-#pragma option -a-
 #endif
 
 #include <stdio.h>
