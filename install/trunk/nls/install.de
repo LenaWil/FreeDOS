@@ -9,9 +9,9 @@
 1.2:Wo sollen die Dateien installiert werden? (Ziel?)
 2.0:Nein
 2.1:Ja
-2.2:Möchten Sie diese Kategorie installieren? [yn] 
-2.3:Möchten Sie mit der Installation dieser Kategorie fortfahren? [yn]
-2.4:Dieses Paket installieren? [yn]
+2.2:Möchten Sie diese Kategorie installieren?
+2.3:Möchten Sie mit der Installation dieser Kategorie fortfahren?
+2.4:Dieses Paket installieren?
 3.0:Diskette: 
 3.1:Top-level Installation
 3.2:Kategorie: 

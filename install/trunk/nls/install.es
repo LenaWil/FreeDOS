@@ -9,9 +9,9 @@
 1.2:¨D¢nde se instalar n los archivos? (¨d¢nde instalarlos?)
 2.0:no
 2.1:s¡
-2.2:¨Quiere instalar la compilaci¢n de este disco? [yn]
-2.3:¨Desea continuar e instalar este disco? [yn]
-2.4:¨Desea instalar este paquete? [yn]
+2.2:¨Quiere instalar la compilaci¢n de este disco?
+2.3:¨Desea continuar e instalar este disco?
+2.4:¨Desea instalar este paquete?
 3.0:Compilaci¢n en disco:
 3.1:Comenzando la instalaci¢n
 3.2:Instalando la serie: 

@@ -9,9 +9,9 @@
 1.2:Mikä on asennuksen kohde? (mihin asennetaan?)
 2.0:ei
 2.1:kyllä
-2.2:Haluatko asentaa tämän levykesarjan? [yn] 
-2.3:Jatketaanko asennusta tältä levykkeeltä? [yn]
-2.4:Asennetaanko tämä paketti? [yn]
+2.2:Haluatko asentaa tämän levykesarjan?
+2.3:Jatketaanko asennusta tältä levykkeeltä?
+2.4:Asennetaanko tämä paketti?
 3.0:Levykesarja: 
 3.1:Ylätason asennuksessa
 3.2:Asennetaan sarjoja: 

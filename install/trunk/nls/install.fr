@@ -9,9 +9,9 @@
 1.2:o— les fichiers d'installations doivent ˆtres install‚? (o— installer?)
 2.0:non
 2.1:oui
-2.2:voulez-vous installer ce jeu de disquettes? [on] 
-2.3:continuer d'installer ce disque? [on]
-2.4:installer ce paquetage? [on]
+2.2:voulez-vous installer ce jeu de disquettes?
+2.3:continuer d'installer ce disque?
+2.4:installer ce paquetage?
 3.0:jeu de disques: 
 3.1:dans l'installation haut niveau.
 3.2:installation des s‚ries: 
