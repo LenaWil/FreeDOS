@@ -943,16 +943,17 @@ static UPPERINFO *check_upper(MINFO *mlist)
 
     upper = xcalloc(1, sizeof(UPPERINFO));
     lastconseg = biosmemory()*64;
-    while (mlist!=NULL && mlist->seg != lastconseg) {
-        if (mlist->next==NULL) {
-            fatal("UMB Corruption: Chain doesn't reach top of low RAM at %dk. Last=0x%x.\n",
-                lastconseg/64, mlist->seg);
-        }
+    /* assert(mlist!=NULL) -- comes from make_mcb_list */
+    for (;;) {
+        unsigned short seg = mlist->seg;
+        if (seg == lastconseg)
+            break;
         mlist=mlist->next;
+        if (mlist==NULL) {
+            fatal("UMB Corruption: Chain doesn't reach top of low RAM at %dk. Last=0x%x.\n",
+                lastconseg/64, seg);
+        }
     }
-    /* should not be reached anymore: */
-    if (mlist->next==NULL)
-        fatal("Fell of end of memory chain - UMB corruption?\n");
 
     mlist=mlist->next;
     while (mlist!=NULL) {
