@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* A function to draw a box on the screen. */
 
 /*
@@ -45,7 +43,7 @@ void
 box (int x0, int y0, int x1, int y1)
 {
   int start_x, start_y;			/* starting coordinates */
-  int i;
+  int i, j;
 
   /* Draw top corners and border */
 
@@ -66,7 +64,11 @@ box (int x0, int y0, int x1, int y1)
       gotoxy (x0, i);
       putch (ACS_VLINE);
 
-      gotoxy (x1, i);
+      for (j = x0+1; j < x1; j++)
+	{
+	  putch (' ');
+	}
+
       putch (ACS_VLINE);
     }
 
