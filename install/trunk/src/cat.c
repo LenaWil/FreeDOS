@@ -17,23 +17,24 @@
 */
 
 
-#include <stdlib.h>			/* getenv(), NULL */
+#include <stdlib.h>                 /* getenv(), NULL */
 #include <stdio.h>
-#include <string.h>			/* strcat(), strlen(), strcpy() */
+#include <string.h>                 /* strcat(), strlen(), strcpy() */
 #include <conio.h>
-#include "dir.h"			/* DIR_CHAR == '\\' or '/' */
+#include "dir.h"                    /* DIR_CHAR == '\\' or '/' */
 
 #include "cat.h"
 
 /* Symbolic constants */
 
-#define COLS 80				/* 80 columns on the screen */
+#define COLS 80                     /* 80 columns on the screen */
 
 
-/* similar to cputs, except expands tabs and converts \n to \r\n */
-/* I need to use a hack here instead of cputs(s) because we
-   appear to be printing a circle (ASCII 09h) instead of blank
-   space. It's not a perfect hack, but it works. */
+/* similar to cputs, except expands tabs and converts \n to \r\n.
+   This function should be used instead of cputs(s) when control
+   characters in a string should be treated special instead of
+   printing the shape corresponding to control characters.
+*/
 void cat_cputs(const char *msg)
 {
   /* Use putch to add characters from the string */
@@ -90,8 +91,8 @@ void cat_cputs(const char *msg)
 int
 cat_file (const char *filename, int maxlines)
 {
-  /* Display a file using conio.  Returns 0 if failed, or non-zero if
-     successful.  Only shows up to maxlines of the file. */
+  /* Display a file using conio.  Only shows up to maxlines of the file. 
+     On successful display, returns the number of lines printed. */
 
   /* The programmer is responsible for positioning the cursor (usually
      at 1,1) before making a call to cat_file.  Be careful that the
