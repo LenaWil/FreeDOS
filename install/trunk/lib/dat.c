@@ -23,8 +23,7 @@
 
 #include <stdio.h>
 #include <string.h>				/* for strtok */
-#include "dat_t.h"
-
+#include "dat.h"
 
 /* Symbolic constants */
 
