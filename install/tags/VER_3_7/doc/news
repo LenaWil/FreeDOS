@@ -1,0 +1,21 @@
+Changes to the Free-DOS Install program:
+
+Copyright (C) Jim Hall <jhall@freedos.org>
+
+______________________________________________________________________
+
+This file lists the changes since the FreeDOS Install program was
+moved into CVS on SourceForge (see http://freedos.sourceforge.net):
+
+
+3.7 (VER_3_7) - major cleanup of interface, some cleanup of code.  Now
+  uses select_yn instead of getch_yn to grab yes/no responses from the
+  user.  This should be better for internationalization, although I
+  don't grab "Yes" and "No" from the catalog yet.
+
+
+--
+
+Upcoming changes:
+
+4.0 - Will add package management, using FDPM.

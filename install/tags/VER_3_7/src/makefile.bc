@@ -1,0 +1,36 @@
+# this is a DOS makefile
+
+CATS=C:\jhall\fdpm\fakecats
+UZPHOME=C:\jhall\fakeuzp
+
+CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)
+LDFLAGS=
+LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\catdb.lib
+LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
+
+SRC=install.c
+OBJ=install.obj
+
+SOURCES1=bargraph.c cat.c isfile.c inst.c
+SOURCES2=box.c getkey.c sel_list.c repaint.c unz.c
+OBJECTS1=$(SOURCES1:.c=.obj)
+OBJECTS2=$(SOURCES2:.c=.obj)
+
+
+# targets:
+
+all: install.exe
+
+clean:
+	del *.obj
+	del *.exe
+
+install.exe: $(OBJ) $(OBJECTS1) $(OBJECTS2)
+	echo $(CFLAGS) > cflags.tmp
+	echo $(LDLIBS1) > ldlibs1.tmp
+	echo $(LDLIBS2) > ldlibs2.tmp
+	echo $(OBJECTS1) > objects1.tmp
+	echo $(OBJECTS2) > objects2.tmp
+	bcc @cflags.tmp $(OBJ) @ldlibs1.tmp @ldlibs2.tmp \
+		@objects1.tmp @objects2.tmp
+	del *.tmp
