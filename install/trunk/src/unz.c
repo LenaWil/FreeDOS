@@ -21,6 +21,7 @@
 #include <stdio.h>			/* for system(), free() */
 #include "unzip.h"			/* for UzpMain() */
 #include "dir.h"
+#include <conio.h>                  /* Quick hack to set cursor for errors */
 
 
 int
@@ -49,6 +50,10 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
 
   argv[3] = full_zipfile;		/* pointer assignment */
   argv[5] = destdir;			/* pointer assignment */
+
+  /* Set the cursor to location so errors can be read, not proper fix. */
+  gotoxy(2, 11);
+
   ret = UzpMain (7, argv);		/* the Unzip code */
 
   /* Done */
