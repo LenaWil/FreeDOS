@@ -1,0 +1,2 @@
+The free emacs clone, "freemacs".  Other COMPLETELY FREE editors
+will be added to the distribution later.
