@@ -1152,7 +1152,8 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     for (mlist=mlistroot; mlist!=NULL; mlist=mlist->next) {
         MINFO *mlistj;
         
-        if (mlist->type == MT_FREE && mlist->next->type == MT_RESERVED) {
+        if (mlist->type != MT_RESERVED && mlist->next != NULL &&
+            mlist->next->type == MT_RESERVED) {
 	    /* adjust to make the reserved area clear */
 	    mlist->next->seg++;
 	}
@@ -1201,7 +1202,8 @@ static unsigned mcb_largest(void)
     for (mlist=make_mcb_list(NULL); mlist!=NULL ;mlist = mlist->next)
         if (mlist->type == MT_FREE || mlist->seg + 1 == _psp) {
             unsigned size = mlist->size;
-            if (mlist->type != MT_FREE && mlist->next->type == MT_FREE)
+            if (mlist->type != MT_FREE && mlist->next != NULL &&
+		mlist->next->type == MT_FREE)
                 size += mlist->next->size + 1; /* adjustment for MEM himself */
             if (size > largest) {
                 largest = size;
@@ -1276,7 +1278,7 @@ static DEVINFO *make_dev_list(MINFO *mlist)
 static void print_normalized_ems_size(unsigned n)
 {
     if (n > 624) /* 9984 is the highest "K" value */
-	convert("%21sM ", (n + 32) / 64L);
+	convert("%21sM ", (n + 32) / 64);
     else
 	convert("%21sK ", n * 16);
     convert("(%s bytes)\n", n * 16384L);
