@@ -1,0 +1,46 @@
+# This is a Makefile for Borland C/C++ 3.1
+
+# Set the memory model:
+
+MEMMODEL=l
+
+# Compiler macros:
+
+CC=bcc
+CFLAGS=-DNDEBUG -m$(MEMMODEL)
+LINT=lint
+RM=del
+
+# File macros:
+
+SOURCES=catpath.c
+OBJECTS=$(SOURCES:.c=.obj)
+
+# Build targets:
+
+all: libs
+
+# libs
+
+libs: catpath.lib
+
+catpath.lib: $(OBJECTS)
+	tlib $@ +catpath.obj
+	del *.obj
+
+
+# lint
+
+lint:
+	$(LINT) $(CFLAGS) $(SOURCES)
+
+
+# clean up
+
+clean realclean:
+	-$(RM) *.map
+	-$(RM) *.bak
+	-$(RM) *.obj
+
+distclean: realclean
+	-$(RM) *.lib
