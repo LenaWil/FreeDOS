@@ -675,7 +675,7 @@ static void *xmalloc (size_t size)
 {
     register void *value = malloc (size);
     if (value == NULL)
-        fatal ("Out of memory.\n");
+        fatal ("Out of memory. Need %ld more bytes.\n", (long int)size);
     return value;
 }
 
@@ -937,18 +937,23 @@ static UPPERINFO *check_upper(MINFO *mlist)
             return upper;
             
         case -1:
-            fatal("SYSTEM MEMORY TRASHED!\n");
+            fatal("SYSTEM MEMORY TRASHED! (int 21.5803 failure)\n");
 
 	}
 
     upper = xcalloc(1, sizeof(UPPERINFO));
     lastconseg = biosmemory()*64;
-    while (mlist!=NULL && mlist->seg != lastconseg)
+    while (mlist!=NULL && mlist->seg != lastconseg) {
+        if (mlist->next==NULL) {
+            fatal("UMB Corruption: Chain doesn't reach top of low RAM at %dk. Last=0x%x.\n",
+                lastconseg/64, mlist->seg);
+        }
         mlist=mlist->next;
-    
-    if (mlist==NULL)
-        fatal("UMB Corruption.\n");
-    
+    }
+    /* should not be reached anymore: */
+    if (mlist->next==NULL)
+        fatal("Fell of end of memory chain - UMB corruption?\n");
+
     mlist=mlist->next;
     while (mlist!=NULL) {
         unsigned size = mlist->size + 1;
@@ -1144,7 +1149,8 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
         mlist=mlist->next;
     }
     if (cur_mcb->type != 'Z')
-        fatal("The MCB chain is corrupted.\n");
+        fatal("The MCB chain is corrupted (no Z MCB after last M MCB, but %c at seg 0x%x).\n",
+            cur_mcb->type, cur_mcb);
     mlist->seg = FP_SEG(cur_mcb);
     register_mcb(mlist);
     set_upperlink(origlink);
@@ -1770,9 +1776,9 @@ int main(int argc, char *argv[])
         
     if (flags & F_HELP)
 	{
-	printf("FreeDOS MEM version 1.6\n"
+	printf("FreeDOS MEM version 1.7\n"
 	       "Displays the amount of used and free memory in your system.\n\n"
-	       "Syntax: MEM [/E] [/F] [/D] [/U] [/X] [/P] [/?]\n"
+	       "Syntax: MEM [/E] [/F] [/C] [/D] [/U] [/X] [/P] [/?]\n"
 	       "  /E  Reports all information about Expanded Memory\n"
 	       "  /F  Full list of memory blocks\n"
 	       "  /C  Classify modules using memory below 1 MB\n"
