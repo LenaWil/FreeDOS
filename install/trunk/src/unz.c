@@ -1,8 +1,6 @@
-/* $Id$ */
-
 /* Wrapper to the info-unzip API */
 
-/* Copyright (C) 1998,1999,2000 Jim Hall <jhall@freedos.org> */
+/* Copyright (C) 1998,1999,2000,2001 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -21,15 +19,14 @@
 */
 
 #include <stdio.h>			/* for system(), free() */
-
 #include "unzip.h"			/* for UzpMain() */
-#include "catpath.h"                /* CP_MAXPATH and catpath (a _makepath replacement) */
+#include "dir.h"
 
 
 int
 unzip_file (const char *zipfile, const char *fromdir, char *destdir)
 {
-  char full_zipfile[CP_MAXPATH];		/* path to a zipfile */
+  char full_zipfile[MAXPATH];		/* path to a zipfile */
   int ret;
 
   /* -d will extract into a given path.  -o will force overwrite if
@@ -46,7 +43,7 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
   /* .zip extension not needed as Unzip will add it if not there.  The
      DAT file may also have the .zip extension anyway. */
 
-  catpath (full_zipfile, "", fromdir, zipfile, "");
+  fnmerge (full_zipfile, "", fromdir, zipfile, "");
 
   /* set 3=full_zipfile and 5=destdir */
 

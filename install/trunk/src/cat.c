@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* Copyright (C) 1998,2000 Jim Hall <jhall@freedos.org> */
 
 /*
@@ -23,8 +21,7 @@
 #include <stdio.h>
 #include <string.h>			/* strcat(), strlen(), strcpy() */
 #include <conio.h>
-#include "catpath.h"			/* CP_MAXPATH, catpath() */
-#include "dir.h"				/* DIR_CHAR == '\\' or '/' */
+#include "dir.h"			/* DIR_CHAR == '\\' or '/' */
 
 #include "cat.h"
 
@@ -135,9 +132,9 @@ cat_file (const char *filename, int maxlines)
 
 FILE * trypath(const char *flags, const char *path, const char *name, const char *ext)
 {
-  char buffer[CP_MAXPATH];		/* full path to try */
+  char buffer[MAXPATH];			/* full path to try */
 
-  catpath (buffer, NULL, path, name, ext);
+  fnmerge (buffer, NULL, path, name, ext);
   return fopen(buffer, flags);
 }
 
@@ -180,7 +177,7 @@ char *strcatpath(char *buffer, const char *initialpath, const char *morepath)
 FILE * tryvariations(const char *flags, const char *basepath, const char *name, const char *lang, const char *lang_2)
 {
   FILE *stream;
-  char buffer[CP_MAXPATH];		/* full path to try */
+  char buffer[MAXPATH];			/* full path to try */
 
   
   /* basepath\%LANG%\filename.TXT */
@@ -224,7 +221,7 @@ FILE * tryvariations(const char *flags, const char *basepath, const char *name, 
 FILE *langfopen(const char *name, const char *flags)
 {
   FILE *stream;
-  char nlspath[CP_MAXPATH];		/* value of %NLSPATH% */
+  char nlspath[MAXPATH];		/* value of %NLSPATH% */
   char *nlsptr;				/* ptr to NLSPATH */
   char *lang;                           /* ptr to LANG */
   char lang_2[3];                       /* 2-char version of %LANG% */

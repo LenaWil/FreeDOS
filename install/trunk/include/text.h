@@ -58,9 +58,9 @@
 4:0:MSG_OPTIONAL:OPTIONAL
 4:1:MSG_REQUIRED:REQUIRED
 4:2:MSG_SKIPPED:SKIPPED
-5:0:MSG_USAGE:USAGE:  install [-mono] [-src <src path>] [-dst <dest path>] [-nopause] [-nolog]\n\n
-5:1:MSG_UNKNOWNOPTION:%s: unknown option -%c\n
-5:2:MSG_ARGMISSING:%s: -%c argument missing\n
+5:0:MSG_USAGE:USAGE:  install [/mono] [/src <src path>] [/dst <dest path>] [/nopause] [/nolog]\n\n
+5:1:MSG_UNKNOWNOPTION:%s: unknown option /%c\n
+5:2:MSG_ARGMISSING:%s: /%c argument missing\n
 6:0:MSG_ERRALLOCMEMDF:Unable to allocate memory for install data file!\n
 6:1:MSG_ERREMPTYDATAFILE:The install data file is empty!\n
 6:2:MSG_ERROR:Error!\n
@@ -72,8 +72,8 @@
 7:1:MSG_SIGINTVERIFYABORT_STR:Are you sure you wish to abort the install? [yn]
 */
 
-#ifndef INSTALL_TEXT_H
-#define INSTALL_TEXT_H
+#ifndef _TEXT_H
+#define _TEXT_H
 
 #define SET_GENERAL 0
 #define SET_PROMPT_LOC 1
@@ -127,7 +127,7 @@
 
 /* SET_USAGE */
 #define MSG_USAGE 0
-#define MSG_USAGE_STR "USAGE:  install [-mono] [-src <src path>] [-dst <dest path>] [-nopause] [-nolog]\n\n"
+#define MSG_USAGE_STR "USAGE:  install [/mono] [/src <src path>] [/dst <dest path>] [/nopause] [/nolog]\n\n"
 
 /* SET_ERRORS */
 #define MSG_ERRALLOCMEMDF 0
@@ -212,9 +212,9 @@
 /* getopt.c - get option letter from argv */
 /* SET_USAGE */
 #define MSG_UNKNOWNOPTION 1
-#define MSG_UNKNOWNOPTION_STR "%s: unknown option -%c\n"
+#define MSG_UNKNOWNOPTION_STR "%s: unknown option /%c\n"
 #define MSG_ARGMISSING 2
-#define MSG_ARGMISSING_STR "%s: -%c argument missing\n"
+#define MSG_ARGMISSING_STR "%s: /%c argument missing\n"
 
 
 /* repaint.c */
@@ -237,4 +237,4 @@
 #define MSG_SIGINTVERIFYABORT_STR "Are you sure you wish to abort the install? [yn]"
 
 
-#endif /* INSTALL_TEXT_H */
+#endif /* _TEXT_H */

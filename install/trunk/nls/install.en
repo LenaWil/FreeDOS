@@ -1,4 +1,4 @@
-0.0:FreeDOS Install - Copyright (C) 1998-2000 Jim Hall
+0.0:FreeDOS Install - Copyright (C) 1998-2001 Jim Hall
 0.1:This is free software, and you are welcome to redistribute it
 0.2:under certain conditions; see the file COPYING for details.
 0.3:Install comes with ABSOLUTELY NO WARRANTY
@@ -33,9 +33,9 @@
 4.0:OPTIONAL
 4.1:REQUIRED
 4.2:SKIPPED
-5:0:USAGE:  install [-mono] [-src <src path>] [-dst <dest path>] [-nopause] [-nolog]\n\n
-5:1:%s: unknown option -%c\n
-5:2:%s: -%c argument missing\n
+5:0:USAGE:  install [/mono] [/src <src path>] [/dst <dest path>] [/nopause] [/nolog]\n\n
+5:1:%s: unknown option /%c\n
+5:2:%s: /%c argument missing\n
 6:0:Unable to allocate memory for install data file!\n
 6:1:The install data file is empty!\n
 6:2:Error!\n

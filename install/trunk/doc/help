@@ -1,9 +1,9 @@
 This is the HELP file for the FreeDOS Install program
 
-Copyright (C) 1998-1999 Jim Hall, <jhall1@isd.net>
+Copyright (C) 1998-2001 Jim Hall, <jhall@freedos.org>
 
 
-install.exe [-mono] [-nolog] [-src <path>] [-dst <path>] [-noprompt]
+install.exe [/mono] [/nolog] [/src <path>] [/dst <path>] [/noprompt]
 Requires INSTALL.DAT, OEM.TXT, COPYR.TXT, and <diskset>.TXT 
 (or localized version of text files) to be in same directory as
 INSTALL.EXE (or in language specific directory) when starting.
@@ -22,7 +22,7 @@ E.g.
 
   install
 
-* Optionally add the -mono switch for black & white text
+* Optionally add the /mono switch for black & white text
 
-* Optionally add the -nolog switch and <dest path>\INSTALL.LOG 
+* Optionally add the /nolog switch and <dest path>\INSTALL.LOG 
   is NOT created

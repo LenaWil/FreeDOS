@@ -22,21 +22,21 @@
 #include <stdlib.h>			/* for system(), free() */
 #include <conio.h>			/* DOS conio */
 
-#include "globals.h"			/* cat, yes, no, #include "catgets.h" */
+#include "globals.h"			/* cat, yes, no, "catgets.h" */
 #include "bargraph.h"			/* for bargraph() */
-#include "box.h"				/* box() */
-#include "dat.h"				/* data file functions */
-#include "cat.h"				/* for cat_file() */
-#include "inst.h"				/* for this file */
+#include "box.h"			/* box() */
+#include "dat.h"			/* data file functions */
+#include "cat.h"			/* for cat_file() */
+#include "inst.h"			/* for this file */
 #include "isfile.h"			/* for isfile() */
-#include "lsm.h"				/* Linux LSM files */
+#include "lsm.h"			/* Linux LSM files */
 #include "repaint.h"			/* for repaint() */
 #include "sel_list.h"			/* select_yn() */
-#include "unz.h"				/* for UzpMain() */
-#include "catpath.h"			/* catpath() - a _makepath clone */
+#include "unz.h"			/* for UzpMain() */
+#include "dir.h"
 #include "pause.h"			/* for pause() */
-#include "text.h"				/* All strings displayed */
-#include "log.h"				/* for log() */
+#include "text.h"			/* All strings displayed */
+#include "log.h"			/* for log() */
 #include "cchndlr.h"			/* for reregisterSIGINTHandler() */
 
 
@@ -46,10 +46,10 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 {
   /* Variables */
 
-  char endfile[CP_MAXPATH];		/* marks end of series */
-  char descfile[CP_MAXPATH];		/* description file */
-  char datfile[CP_MAXPATH];		/* current DAT file */
-  char ext[CP_MAXPATH];			/* file extension */
+  char endfile[MAXPATH];		/* marks end of series */
+  char descfile[MAXPATH];		/* description file */
+  char datfile[MAXPATH];		/* current DAT file */
+  char ext[MAXPATH];			/* file extension */
   char *s;
   int disknum = 0;			/* current disk number */
   int ch;
@@ -58,9 +58,9 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 
   /* Create the filenames */
 
-  catpath (endfile, "", fromdir, diskset, "END");
-  /* catpath (descfile, "", fromdir, diskset, "TXT"); */
-  catpath (descfile, "", fromdir, diskset, "");
+  fnmerge (endfile, "", fromdir, diskset, "END");
+  /* fnmerge (descfile, "", fromdir, diskset, "TXT"); */
+  fnmerge (descfile, "", fromdir, diskset, "");
 
 
   /* Print the name of the series we are working on */
@@ -86,7 +86,7 @@ set_install (const char *diskset, char *fromdir, char *destdir)
        the endfile was found. */
 
     sprintf (ext, "%d", ++disknum);
-    catpath (datfile, "", fromdir, diskset, ext);
+    fnmerge (datfile, "", fromdir, diskset, ext);
 
     if (!isfile (datfile)) {
       /* Does the endfile exist? */
@@ -168,7 +168,7 @@ inst_t
 disk_install(const char *datfile, const char *descfile,
 	     char *fromdir, char *destdir)
 {
-  char lsmfile[CP_MAXPATH];		/* Linux software map file */
+  char lsmfile[MAXPATH];		/* Linux software map file */
   char *s;
 
   int dat_size = 30;			/* malloc size of the dat array */
@@ -242,7 +242,7 @@ disk_install(const char *datfile, const char *descfile,
 
     /* Generate the lsmfile name */
 
-    catpath (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
+    fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
 
     if (isfile (lsmfile))
       {
@@ -252,7 +252,7 @@ disk_install(const char *datfile, const char *descfile,
       {
 	/* no lsm file. try it again with a plain txt file */
 
-	catpath (lsmfile, "", fromdir, dat_ary[i].name, "");
+	fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "");
 
 	if (isfile (lsmfile))
 	  {

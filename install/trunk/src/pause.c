@@ -26,12 +26,6 @@
 #include "pause.h"			/* pause() prototype */
 
 
-/* Globals */
-extern nl_catd cat;			/* (install.c) language catalog */
-extern int nopauseflag;			/* (install.c) 0=pause,         */
-                                    /* 1=don't pause ie autoinstall */
-
-
 /* pauses execution with a pretty message */
 void pause(void)
 {

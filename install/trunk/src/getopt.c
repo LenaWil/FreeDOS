@@ -2,7 +2,7 @@
   I found this code on simtel, I think.  There was no copyright and no
   author's name on the source file.  So I am assuming it was placed
   under the public domain.  To protect this code, I am placing it
-  under the GNU GPL.  -jhall1
+  under the GNU GPL.  -jhall
 */
 
 /*
@@ -24,14 +24,40 @@
     USA.  */
 
 /*
+  The getopt() function parses the command line arguments.  Its
+  arguments argc and argv are the argument count and array as passed
+  to the main() function on program invocation.  An element of argv
+  that starts with `/'is an option element.  If getopt() is called
+  repeatedly, it returns successively each of the option characters
+  from each of the option elements.
+
+  If there are no more option characters, getopt() returns -1.  Then
+  optind is the index in argv of the first argv element that is not an
+  option.
+
+  optstring is a string containing the legitimate option characters.
+  If such a character is followed by a colon, the option requires an
+  argument, so getopt places a pointer to the following text in the
+  same argv-element, or the text of the following argv-element, in
+  optarg.
+
+  If getopt() does not recognize an option character, it prints an
+  error message to stderr, stores the character in optopt, and returns
+  `?'.  The calling program MUST TURN ON THIS BEHAVIOR by setting
+  opterr to 1.
+*/
+
+/*
  * getopt - get option letter from argv
  */
 
 #include <stdio.h>
 #include <string.h>			/* for strcmp(), strchr() */
 
+
 char    *optarg;        /* Global argument pointer. */
 int     optind = 0;     /* Global argv index. */
+int     opterr = 0;     /* Global error message flag. */
 
 static char     *scan = NULL;   /* Private scan pointer. */
 
@@ -55,7 +81,7 @@ char *optstring;
                 if (optind == 0)
                         optind++;
         
-                if (optind >= argc || argv[optind][0] != '-' || argv[optind][1] == '\0')
+                if (optind >= argc || argv[optind][0] != '/' || argv[optind][1] == '\0')
                         return(EOF);
                 if (strcmp(argv[optind], "--")==0) {
                         optind++;
@@ -70,8 +96,10 @@ char *optstring;
         place = strchr(optstring, c);
 
         if (place == NULL || c == ':') {
-                fprintf(stderr, "%s: unknown option -%c\n", argv[0], c);
+	  if (opterr) {
+                fprintf(stderr, "%s: unknown option /%c\n", argv[0], c);
                 return('?');
+	  }
         }
 
         place++;
@@ -82,8 +110,8 @@ char *optstring;
                 } else if (optind < argc) {
                         optarg = argv[optind];
                         optind++;
-                } else {
-                        fprintf(stderr, "%s: -%c argument missing\n", argv[0], c);
+                } else if (opterr) {
+                        fprintf(stderr, "%s: /%c argument missing\n", argv[0], c);
                         return('?');
                 }
         }

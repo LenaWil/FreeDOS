@@ -1,32 +1,24 @@
 How to compile the FreeDOS Install program:
 
-Copyright (C) 1998-1999 Jim Hall, <jhall1@isd.net>
-Updated to reflect my changes, by Jeremy Davis <jeremyd@computer.org>
+* Things you will need to compile:
 
-I   Compiling INSTALL
-II  Creating distribution with INSTALL
-III Using INSTALL
-IV  Using the extra programs
-
-______________________________________________________________________
-
-** Things you will need to compile the FreeDOS Install program:
+   - A Borland-compatible C compiler (such as TurboC)
+     You can download a free copy of TurboC for personal use from:
+       http://community.borland.com (in the Museum)
 
    - Info-Unzip source code (currently tested with unzip542.zip)
      The latest version may be found at
        http://www.info-zip.org/pub/infozip/UnZip.html
 
    - Cats library (supports UNIX-like catopen/catgets) 
-     (Now includes Jim Hall's DOS/Win32 Cats library in LIB\
-     directory [ver 3.9.3 modified].)
      The latest cats may be found at 
        http://www.freedos.org/jhall/cats
-     My modifications for Cats can be found at
+     Jeremy's modifications for Cats can be found at
        http://www.darklogic.org/internationalization/
 
 ______________________________________________________________________
 
-I   TO COMPILE THE INSTALL PROGRAM:
+I   COMPILE THE INSTALL PROGRAM:
 
 0. Unzip the sources (you've already done that if you are reading this
    file)
@@ -38,8 +30,6 @@ I   TO COMPILE THE INSTALL PROGRAM:
 
    Otherwise make sure a cats library is compiled/installed on
    your system and the makefiles reflect its location.
-   In LIB\CATS is Jim Hall's Cats library that can be used for
-   DOS or Win32.
 
 2. Compile the Info-Unzip library.  This is needed to compile and link
    the FreeDOS Install program.  
@@ -139,26 +129,26 @@ INSTALL
 
 Install has several options:
 
-The -mono option will cause INSTALL to use BLACK and LIGHT GRAY
+The /mono option will cause INSTALL to use BLACK and LIGHT GRAY
 (normal DOS colors) instead of BLUE and WHITE.
 
-The -nolog option tells INSTALL to not create its log file.
+The /nolog option tells INSTALL to not create its log file.
 Normally a log file (INSTALL.LOG) is created in <dst path>,
-i.e. -nolog means <dst path>\INSTALL.LOG is not created.
+i.e. /nolog means <dst path>\INSTALL.LOG is not created.
 
-The -noprompt option can be used with -src and -dst options to allow
+The /noprompt option can be used with /src and /dst options to allow
 for automated installs.  This option disables waiting for a key at
 the pause prompts (i.e. does not pause between screens).
 
-The -src option specifies the From directory on the command line.
+The /src option specifies the From directory on the command line.
 If given the user is not allowed to change it.  This option can
-be used with the -dst and -noprompt option for automated installs.
+be used with the /dst and /noprompt option for automated installs.
 
-The -dst option specifies the To directory on the command line.
+The /dst option specifies the To directory on the command line.
 If given the user is not allowed to change it.  This option can
-be used with the -src and -noprompt option for automated installs.
+be used with the /src and /noprompt option for automated installs.
 
-Note: Even if -src -dst and -noprompt options are given, INSTALL
+Note: Even if /src /dst and /noprompt options are given, INSTALL
 will still prompt the user to choose any disksets or packages that
 do not explicitly specify 'y' or 'n', and it will still prompt the
 user to insert disks as needed.  If you run MKRPINST.EXE on an
@@ -208,8 +198,8 @@ installation media replacing the correspondingly named files.
 The next time INSTALL.EXE is ran it will no longer prompt the user
 whether to insall any of the disk sets nor which packages to install.
 It will still however prompt the user for From directory, To directory
-and to press a key various places, unless the -src, -dst, and 
--noprompt options are used.  You should either use a duplicate of 
+and to press a key various places, unless the /src, /dst, and 
+/noprompt options are used.  You should either use a duplicate of 
 the original install media, or backup your original INSTALL.DAT
 and <disk>.# files before copying the new ones over them.
 

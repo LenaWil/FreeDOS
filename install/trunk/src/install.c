@@ -16,7 +16,7 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define INSTALL_VERSION "3.7.1g"
+#define INSTALL_VERSION "3.7.3"
 
 
 #include <stdio.h>
@@ -31,15 +31,15 @@
                                     /* 1=don't pause ie autoinstall */
                                     /* and #include "catgets.h"     */
 /* #include "catgets.h"			/* DOS catopen(), catgets() */
-#include "cat.h"				/* for cat() */
-#include "dat.h"				/* for dat_read() */
-#include "catpath.h"			/* CP_MAXPATH */
-#include "inst.h"				/* for inst_t */
+#include "cat.h"			/* for cat() */
+#include "dat.h"			/* for dat_read() */
+#include "dir.h"
+#include "inst.h"			/* for inst_t */
 #include "repaint.h"			/* repaint_empty() */
 #include "sel_list.h"			/* select_yn() */
 #include "pause.h"			/* for pause() */
 #include "cdp.h"                    /* createdestpath() */
-#include "log.h"				/* openlog(), log(), closelog() */
+#include "log.h"			/* openlog(), log(), closelog() */
 #include "cchndlr.h"			/* SIGINT (ctrl-c) handler */
 
 #include "text.h"                   /* All strings displayed */
@@ -50,8 +50,8 @@ inst_t install_top (dat_t *dat_ary, int dat_count);
 
 
 /* Globals local to this file only */
-char fromdir[CP_MAXDIR];		/* path to install from */
-char destdir[CP_MAXDIR];		/* path to install to */
+char fromdir[MAXDIR];		/* path to install from */
+char destdir[MAXDIR];		/* path to install to */
 int fromdirflag = 0;			/* 0=prompt user,    */
 int destdirflag = 0;			/* 1=on command line */
 int wantlog = 1;				/* user wants to log activity */
@@ -81,19 +81,19 @@ main (int argc, char **argv)
 
   for (i = 1; i < argc; i++)
   {
-    if (strcmpi(argv[i], "-mono") == 0)
+    if (strcmpi(argv[i], "/mono") == 0)
       mono = 1;
-    else if (strcmpi(argv[i], "-nopause") == 0)
+    else if (strcmpi(argv[i], "/nopause") == 0)
       nopauseflag = 1;
-    else if (strcmpi(argv[i], "-nolog") == 0)
+    else if (strcmpi(argv[i], "/nolog") == 0)
       wantlog = 0;
-    else if ( (strcmpi(argv[i], "-src") == 0) && (i+1 < argc))
+    else if ( (strcmpi(argv[i], "/src") == 0) && (i+1 < argc))
     {
       fromdirflag = 1;
       i++;
       strcpy(fromdir+2, argv[i]);
     }
-    else if ( (strcmpi(argv[i], "-dst") == 0) && (i+1 < argc))
+    else if ( (strcmpi(argv[i], "/dst") == 0) && (i+1 < argc))
     {
       destdirflag = 1;
       i++;
@@ -219,7 +219,7 @@ install_top (dat_t *dat_ary, int dat_count)
      sets the user wants to install, then installs them. */
 
   char *s;
-  char txtfile[CP_MAXPATH];		/* name of text descr file */
+  char txtfile[MAXPATH];		/* name of text descr file */
   int ch;
   int i;
   inst_t ret;				/* return: no. of errors,warnings */
@@ -234,8 +234,8 @@ install_top (dat_t *dat_ary, int dat_count)
 
     repaint_empty();
 
-    fromdir[0] = CP_MAXDIR;		/* max length of the string */
-    destdir[0] = CP_MAXDIR;		/* max length of the string */
+    fromdir[0] = MAXDIR;		/* max length of the string */
+    destdir[0] = MAXDIR;		/* max length of the string */
 
     s = catgets (cat, SET_PROMPT_LOC, MSG_INSTALLFROM, MSG_INSTALLFROM_STR);
     gotoxy (5, 10);

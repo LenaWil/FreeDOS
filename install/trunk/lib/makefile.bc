@@ -9,8 +9,6 @@ libs:
 	make -f makefile.bc all
 	cd ..\cats
 	make -f makefile.bc libs
-	cd ..\catpath
-	make -f makefile.bc libs
 	cd ..\unzip
 	make  -DBUILD_DLL=-DDLL -f makefile.bc unzip.lib
 	cd ..
@@ -23,8 +21,6 @@ libclean:
 	cd lsm
 	make -f makefile.bc clean
 	cd ..\cats
-	make -f makefile.bc distclean
-	cd ..\catpath
 	make -f makefile.bc distclean
 	cd ..\unzip
 	make -f makefile.bc clean

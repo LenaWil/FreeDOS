@@ -2,12 +2,11 @@
 
 CATS=..\lib\cats
 UZPHOME=..\lib\unzip
-CATPATH=..\lib\catpath
 
 CC=bcc
-CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)\include -I$(CATPATH)
+CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)\include
 LDFLAGS=
-LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\lib\catdb.lib $(CATPATH)\catpath.lib
+LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\lib\catdb.lib
 LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
 
 SRC=install.c
@@ -22,21 +21,12 @@ OBJECTS2=$(SOURCES2:.c=.obj)
 # targets:
 
 all: install.exe cat_file.exe
-	cd extra
-	make -f makefile.bc all
-	cd ..
 
-clean:
+clean realclean:
 	del *.obj
-	cd extra
-	make -f makefile.bc clean
-	cd ..
 
-realclean: clean
+distclean: realclean
 	del *.exe
-	cd extra
-	make -f makefile.bc distclean
-	cd ..
 
 
 # the del cat.obj lines are due to cat.obj include or doesn't include a main()
