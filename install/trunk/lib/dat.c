@@ -30,16 +30,22 @@
 #define STRLEN 80				/* size of a string */
 
 
+/* Reads contents of a dat file from current position in 
+   stream until EOF into an array.  The number of elements
+   in the array is placed in count, and returns dat_ary,
+   the array containing the information in the dat file.
+   The usershould free() this array when no longer needed.
+   The user should ensure the array returned (dat_ary) is not
+   NULL before attempting to use (or free it). If NULL is
+   returned then: if count is > 0 then failed to allocate memory
+   (with count == to number of entries attempted to allocate),
+   if count is 0, then either no entries in file, or other error
+   reading file.
+*/
 dat_t *
 dat_fread (FILE *stream, int *count)
 {
-  /* reads a dat file, into an array pointed to by dat_ary.
-     The number of elements in the array (0 may indicate an 
-     error) is placed in count, returns dat_ary, the array
-     which the user should free() when no longer needed. 
-  */
-
-  char str[STRLEN];				/* for reading the line */
+  char str[STRLEN];			/* for reading the line */
   char *s;					/* temporary pointer */
   dat_t *dat_ary;				/* array to hold data */
   int dat_size = 0;			/* holds needed malloc'd size */
@@ -52,7 +58,7 @@ dat_fread (FILE *stream, int *count)
   /* Do two reads, 1st time through just count how many there are */
 
   /* 1st get file position, so can reset after 1st time through,
-     we could just seek to the beginning, but there is guarentee
+     we could just seek to the beginning, but there is no guarentee
      the stream is at the beginning.
   */
   if (fgetpos(stream, &iFilePosition)) return NULL;
@@ -114,7 +120,6 @@ dat_fread (FILE *stream, int *count)
       }
     
     /* Check on the length of the array */
-
     *count += 1;
 
     if (*count > dat_size) {
@@ -128,33 +133,37 @@ dat_fread (FILE *stream, int *count)
   return (dat_ary);
 }
 
+/* Reads contents of a dat file specified by filename into
+   an array.  The number of elements in the array is placed
+   in count, and returns dat_ary, the array containing the
+   information in the dat file, which the user should free()
+   when no longer needed.
+   The user should ensure the array returned (dat_ary) is not
+   NULL before attempting to use (or free it). If NULL is
+   returned then: if count is negative then failed to
+   open file, if count is > 0 then failed to allocate memory
+   (with count == to number of entries attempted to allocate),
+   if count is 0, then either no entries in file, or other error
+   reading file.
+*/
 dat_t *
 dat_read (const char *filename, int *count)
 {
-  /* reads a dat file, into an array pointed to by dat_ary.
-     The number of elements in the array (0 may indicate an 
-     error) is placed in count, returns dat_ary, the array
-     which the user should free() when no longer needed. 
-  */
-
   FILE *stream;
   dat_t *ret;
 
   /* Open the file */
-
   stream = fopen (filename, "r");
   if (stream == NULL) {
     /* Failed */
-
-    return (0);
+    *count = -1;
+    return (NULL);
   }
 
   /* Read the file */
-
   ret = dat_fread (stream, count);
 
   /* Close the file, and quit */
-
   fclose (stream);
   return (ret);
 }
