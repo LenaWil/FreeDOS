@@ -7,10 +7,16 @@ ______________________________________________________________________
 This file lists the changes since the FreeDOS Install program was
 moved into CVS on SourceForge (see http://freedos.sourceforge.net):
 
-3.7.3 (VER_3_7_3) - changes by Jeremy Davis to better support '/'
-    instead of '-' for DOS option characters.  Really, this should use
-    getopt, but that is next on the list.  Haven't had the chance to
-    test-build this before the release, so I hope it works!  -jh
+3.7.4 (VER_3_7_4) - Jeremy Davis has again fixed more bugs and added
+ extra patches.  Fixed in this release: minor changes to the NLS files
+ to remove the y/n prompt, updates to dat.c to support dynamic sizing
+ of the dat array, additional code to make Install portable across
+ compilers.
+
+3.7.3 (VER_3_7_3) - Changes by Jeremy Davis to better support '/'
+ instead of '-' for DOS option characters.  Really, this should use
+ getopt, but that is next on the list.  Haven't had the chance to
+ test-build this before the release, so I hope it works!  -jh
 
 3.7.2 (VER_3_7_2) - Jeremy Davis (jeremyd@computer.org) has fixed some bugs.
  Version 3.7.2 includes those fixes.  Specifically:
