@@ -1,0 +1,27 @@
+# this is a DOS makefile
+
+CFLAGS=-ml -DNDEBUG -I..\include
+
+all: libs dat.obj
+
+libs:
+	cd lsm
+	make -f makefile.bc all
+	cd ..\cats
+	make -f makefile.bc libs
+	cd ..\unzip
+	make  -DBUILD_DLL=-DDLL -f makefile.bc unzip.lib
+	cd ..
+
+clean: libclean
+	del *.obj
+	del *.lib
+
+libclean:
+	cd lsm
+	make -f makefile.bc clean
+	cd ..\cats
+	make -f makefile.bc distclean
+	cd ..\unzip
+	make -f makefile.bc clean
+	cd ..

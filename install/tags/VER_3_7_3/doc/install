@@ -1,0 +1,212 @@
+How to compile the FreeDOS Install program:
+
+* Things you will need to compile:
+
+   - A Borland-compatible C compiler (such as TurboC)
+     You can download a free copy of TurboC for personal use from:
+       http://community.borland.com (in the Museum)
+
+   - Info-Unzip source code (currently tested with unzip542.zip)
+     The latest version may be found at
+       http://www.info-zip.org/pub/infozip/UnZip.html
+
+   - Cats library (supports UNIX-like catopen/catgets) 
+     The latest cats may be found at 
+       http://www.freedos.org/jhall/cats
+     Jeremy's modifications for Cats can be found at
+       http://www.darklogic.org/internationalization/
+
+______________________________________________________________________
+
+I   COMPILE THE INSTALL PROGRAM:
+
+0. Unzip the sources (you've already done that if you are reading this
+   file)
+
+1. Compile the Cats library for your system.
+
+   If you are using DOS and the Borland C Compiler 3.1 (or 
+   compatible), then you may omit this step.
+
+   Otherwise make sure a cats library is compiled/installed on
+   your system and the makefiles reflect its location.
+
+2. Compile the Info-Unzip library.  This is needed to compile and link
+   the FreeDOS Install program.  
+
+   If you are using DOS and the Borland C Compiler 3.1 (or
+   compatible), use the `Makefile.bc' in `LIB\UNZIP\'
+   Note: you should unzip the Unzip archive into LIB\UNZIP so the 
+   LIB\MAKEFILE.BC can find the unzip sources properly and 
+   automatically compile the library form when compiling the other
+   necessary libs
+
+   If you are using a different platform, use the Makefile provided
+   in the Info-Unzip sources to create the library.  (This works great
+   under Linux.)
+
+3. Go to the root of the source tree (the one that has the `DOC' and
+   `SRC' and `LIB' directories in it)
+
+4. Check the Makefile to make sure the path to the Info-Unzip library
+   is correct.  For DOS, you will want to edit the file
+   `SRC\MAKEFILE.BC'.
+
+5. Compile the Install program.  If you are using DOS and the Borland
+   C Compiler 3.1 (or compatible), type:
+
+   make -f makefile.bc
+
+
+   If you are using UNIX, type:
+
+   make
+
+
+6. You are done!
+   There will now be INSTALL.EXE in the sample directory, along with
+   INSTALL.EXE, CAT_FILE.EXE in SRC\ and MKRPINST.EXE, MAUTOCFG.EXE
+   in SRC\EXTRA\  See below for usage.
+
+______________________________________________________________________
+
+II  CREATING A DISTRIBUTION WITH THE INSTALL PROGRAM:
+
+Create INSTALL.DAT, for each diskset diskset.TXT and diskset.END,
+and for each disk in the disk set a diskset.# (from 1 to number of
+disks required for the diskset).
+
+To create an internalized version, simply, for each *.TXT file, provide
+a *.%lang% file, where %lang% is the 1st 2 letters the environment 
+variable LANG is set to (corresponding to specified language), or
+place *.TXT files in %lang% directory (either in same directory as
+the INSTALL.EXE program or in one of the directories specified in
+the NLSPATH env var).  [The actuall search path is identical to
+that used by CAT_FILE.EXE, see section IV for more detail.]
+
+INSTALL.DAT and diskset.# contains a set of lines in the form
+NAME: c
+where NAME is the name of the diskset or package.  This name is 
+shown to the user and is also part of the filename for both the
+diskset's description and data file (so limited to 8 characters
+valid for a filename under DOS).  The c is the choice option, one 
+of 'y' 'n' or '?' which indicate the disk/package will be installed
+(without asking user - ie required), the disk/package will not
+be installed (without asking user -ie discontinued/not ready), and
+ask the user if should install the disk/package, respectively.
+The INSTALL.DAT file specifies which disksets to install, and each
+diskset.# (each disk has a different #) specifies which packages
+on the current disk to install. 
+
+Copy the `INSTALL.EXE', `INSTALL.DAT', and all the `.TXT' files to
+where you will run the Install program.  Usually, this will be a boot
+floppy.
+
+For international support, also copy the files from nls/ to the
+directory indicated by your NLSPATH env variable.  Your LANG env
+variable should contain your language code.  (Could this contain an
+easter egg?)
+
+For each diskset, copy disk.# and files specified to each disk
+(either diskette, CD-ROM, or whatever).  Copy the disk.END file to
+the last disk in the diskset (which may also be the 1st disk).
+
+To create an automated install, specify the source path, destination
+path, give -nopause option, and ensure INSTALL.DAT and *.1 files only
+contain yes or no (ie no ? unless you want the user to be prompted).
+See SAMPLE\AUTOINST.BAT and AUTO*.* for example.  Usually the 
+data files should contain mostly ? as most users prefer to be given a
+choice.
+
+______________________________________________________________________
+
+III TO USE THE INSTALL PROGRAM:
+
+Using INSTALL.EXE is easy.  Simply make sure the necessary data files
+created above are in the same directory (or directory in %NLSPATH%),
+then at the C:\> prompt type:
+INSTALL
+
+Install has several options:
+
+The /mono option will cause INSTALL to use BLACK and LIGHT GRAY
+(normal DOS colors) instead of BLUE and WHITE.
+
+The /nolog option tells INSTALL to not create its log file.
+Normally a log file (INSTALL.LOG) is created in <dst path>,
+i.e. /nolog means <dst path>\INSTALL.LOG is not created.
+
+The /noprompt option can be used with /src and /dst options to allow
+for automated installs.  This option disables waiting for a key at
+the pause prompts (i.e. does not pause between screens).
+
+The /src option specifies the From directory on the command line.
+If given the user is not allowed to change it.  This option can
+be used with the /dst and /noprompt option for automated installs.
+
+The /dst option specifies the To directory on the command line.
+If given the user is not allowed to change it.  This option can
+be used with the /src and /noprompt option for automated installs.
+
+Note: Even if /src /dst and /noprompt options are given, INSTALL
+will still prompt the user to choose any disksets or packages that
+do not explicitly specify 'y' or 'n', and it will still prompt the
+user to insert disks as needed.  If you run MKRPINST.EXE on an
+INSTALL.LOG then all the choices are given as 'y' or 'n' to match
+the choices made during that install.  
+
+
+______________________________________________________________________
+
+IV  USING THE EXTRA PROGRAMS:
+
+CAT_FILE.EXE is similar in functionality to UNIX cat or DOS type 
+It will display a file on the screen.  Note the file is directly
+printed to the screen instead of going through OS IO calls, thus
+its output can not be piped like cat or type.
+The required argument is the filename of the file to display, with
+and optional count of lines to display (from the beginning).
+Unlike cat or type, CAT_FILE uses
+the LANG and NLSPATH environment variables to display a localized
+version of the file.  
+USAGE: cat_file <filename> [<nlines>]
+where <filename> usually does not specify an extension
+Tries to open the file using in this order:
+   %LANG%\<filename>.TXT
+   %LANG%\<filename>
+   <filename>.%LANG%
+   if %LANG% in format "aa-BB", such as "en-UK" then try
+   {
+     aa\<filename>.TXT   (ie en\filename.TXT)
+     aa\<filename>       (ie en\filename
+     <filename>.aa       (ie filename.en )
+   }
+   <filename>.TXT
+   <filename>
+If not found yet then repeats above search, except instead of .,
+   use each ; separated path in %NLSPATH%
+If still not found then prints an error message indicating not found.
+
+
+MKRPINST.EXE takes the log file INSTALL.LOG generated during an
+install and creates a set of data files that can be used with
+INSTALL.EXE to repeat the same install.  This program can be used
+to help create an automated install.  First install normally,
+then run MKRPINST.EXE on the generated INSTALL.LOG file.  Copy
+the INSTALL.DAT file and <disk>.# files (eg EDIT.1) to the
+installation media replacing the correspondingly named files.
+The next time INSTALL.EXE is ran it will no longer prompt the user
+whether to insall any of the disk sets nor which packages to install.
+It will still however prompt the user for From directory, To directory
+and to press a key various places, unless the /src, /dst, and 
+/noprompt options are used.  You should either use a duplicate of 
+the original install media, or backup your original INSTALL.DAT
+and <disk>.# files before copying the new ones over them.
+
+
+MAUTOCFG.EXE takes the log file INSTALL.LOG generated during an
+install, extracts the To directory (destination path) and creates
+a sample AUTOEXEC.BAT and CONFIG.SYS using it and the currently
+specified LANG environment variable.  This is mostly a demo
+program, but can be used to create example files with the proper
+directories.
