@@ -16,7 +16,7 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define INSTALL_VERSION "3.7.3"
+#define INSTALL_VERSION "3.7.4-unofficial"
 
 
 #include <stdio.h>
@@ -64,7 +64,6 @@ main (int argc, char **argv)
 {
   char *s;
   int dat_count;				/* size of the dat array */
-  int dat_size = 10;			/* malloc size of the dat array */
   int i;
   int mono = 0;				/* running on monochrome monitor */
 
@@ -113,14 +112,12 @@ main (int argc, char **argv)
 
   /* Read dat file */
 
-  dat_ary = malloc (sizeof (dat_t) * dat_size);
+  dat_ary = dat_read ("INSTALL.DAT", &dat_count);
   if (dat_ary == NULL)
     {
       fprintf (stderr, catgets (cat, SET_ERRORS, MSG_ERRALLOCMEMDF, MSG_ERRALLOCMEMDF_STR));
       exit (2);
     }
-
-  dat_count = dat_read ("INSTALL.DAT", dat_ary, dat_size);
   if (dat_count < 1)
     {
       fprintf (stderr, catgets (cat, SET_ERRORS, MSG_ERREMPTYDATAFILE, MSG_ERREMPTYDATAFILE_STR));

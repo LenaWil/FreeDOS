@@ -47,7 +47,6 @@ set_install (const char *diskset, char *fromdir, char *destdir)
   /* Variables */
 
   char endfile[MAXPATH];		/* marks end of series */
-  char descfile[MAXPATH];		/* description file */
   char datfile[MAXPATH];		/* current DAT file */
   char ext[MAXPATH];			/* file extension */
   char *s;
@@ -59,9 +58,6 @@ set_install (const char *diskset, char *fromdir, char *destdir)
   /* Create the filenames */
 
   fnmerge (endfile, "", fromdir, diskset, "END");
-  /* fnmerge (descfile, "", fromdir, diskset, "TXT"); */
-  fnmerge (descfile, "", fromdir, diskset, "");
-
 
   /* Print the name of the series we are working on */
 
@@ -157,7 +153,7 @@ set_install (const char *diskset, char *fromdir, char *destdir)
     /* Install files from this disk */
 
     log("<disk name=\"%s\" number=\"%i\" >\n", diskset, disknum);
-    this = disk_install (datfile, descfile, fromdir, destdir);
+    this = disk_install (datfile, fromdir, destdir);
     log("</disk>\n");
     ret.errors += this.errors;
     ret.warnings += this.warnings;
@@ -165,13 +161,11 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 }
 
 inst_t
-disk_install(const char *datfile, const char *descfile,
-	     char *fromdir, char *destdir)
+disk_install(const char *datfile, char *fromdir, char *destdir)
 {
   char lsmfile[MAXPATH];		/* Linux software map file */
   char *s;
 
-  int dat_size = 30;			/* malloc size of the dat array */
   int dat_count;				/* size of the dat array */
   int ret;
   int ch;
@@ -188,8 +182,7 @@ disk_install(const char *datfile, const char *descfile,
   this.warnings = 0;
 
   /* Read dat file */
-
-  dat_ary = malloc (sizeof (dat_t) * dat_size);
+  dat_ary = dat_read (datfile, &dat_count);
   if (dat_ary == NULL)
     {
       s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
@@ -202,8 +195,6 @@ disk_install(const char *datfile, const char *descfile,
 	pause();
       return (this);
     }
-
-  dat_count = dat_read (datfile, dat_ary, dat_size);
   if (dat_count < 1)
     {
       s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
@@ -250,16 +241,13 @@ disk_install(const char *datfile, const char *descfile,
       }
     else
       {
-	/* no lsm file. try it again with a plain txt file */
+	/* no lsm file. try it again with a plain txt file (or localized version) */
 
 	fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "");
 
-	if (isfile (lsmfile))
-	  {
 	    gotoxy (2, 8);
 	    cat_file (lsmfile, 10 /* no. lines */);
 	  }
-      }
 
     /* Find out which ones the user wants to install */
 
@@ -278,7 +266,7 @@ disk_install(const char *datfile, const char *descfile,
     case 'Y':
       /* Always install */
 
-      log("<package name=\"%s\" choice=\"y\" />\n", dat_ary[i].name);
+      log("<package name=\"%s\" choice=\"y\" ", dat_ary[i].name);
       s = catgets (cat, SET_PKG_NEED, MSG_REQUIRED, MSG_REQUIRED_STR);
       cputs (s);
 
@@ -291,7 +279,9 @@ disk_install(const char *datfile, const char *descfile,
 
 	s = catgets (cat, SET_PKG_GENERAL, MSG_ERRREQPKG, MSG_ERRREQPKG_STR);
 	cputs (s);
+      log(">\n");
       log("<error msg=\"%s\" />\n", s);
+      log("</package>\n");
 
 	/* Return an error */
 
@@ -302,12 +292,14 @@ disk_install(const char *datfile, const char *descfile,
 	s = catgets (cat, SET_PROMPT_YN, MSG_CONTINSTDISK, MSG_CONTINSTDISK_STR);
 	ch = select_yn(s, yes, no, NULL, NULL);
 
-	if (ch)
-	  {
+        if (ch)
+        {
           log("<abort msg=\"User choose not to continue after error.\" />\n");
-	    return (this);
+          return (this);
 	  }
       }
+      else /* ret == 0, ie no errors */
+        log("/>\n");
       break;
 
     default:
@@ -329,7 +321,7 @@ disk_install(const char *datfile, const char *descfile,
 
       if (pkg_yesToAll || ch==0) /* Yes or YesToAll */
 	{
-        log("<package name=\"%s\" choice=\"y\" />\n", dat_ary[i].name);
+        log("<package name=\"%s\" choice=\"y\" ", dat_ary[i].name);
 	  ret = unzip_file (dat_ary[i].name, fromdir, destdir);
 
         reregisterSIGINTHandler(); /* unzip installs its own SIGINT handler */
@@ -338,14 +330,18 @@ disk_install(const char *datfile, const char *descfile,
 	    {
 	      /* Print a warning message */
 
-	      gotoxy (2, 23);
+	      gotoxy (2, 13);
 	      s = catgets (cat, SET_PKG_GENERAL, MSG_WARNOPTPKG, MSG_WARNOPTPKG_STR);
 	      cputs (s);
+            log(">\n");
             log("<warning msg=\"%s\" />\n", s);
+            log("</package>\n");
 
 		pause();
 	      this.warnings++;
 	    }
+          else
+            log("/>\n");
 	}
       else /* user selected no */
           log("<package name=\"%s\" choice=\"n\" />\n", dat_ary[i].name);
