@@ -64,6 +64,12 @@
       XMS driver installed as well, do NOT count MEM environment as free space,
       don't merge free blocks in the output anymore.
     * various small cleanups
+
+    MEM 1.6, April 2004
+    * minor output tweaks, don't upcase names anymore
+    * try to detect UMB holes and don't count them as upper memory
+    * display UMB holes as "reserved" in mem/f output
+    * display version for "mem/?"
 */
 
 /*  Be sure to compile with word alignment OFF !!! */
@@ -114,9 +120,10 @@ typedef unsigned long ulong;
 #define MT_PROGRAM 4
 #define MT_ENV     5
 #define MT_DATA    6
-#define MT_DEVICE  7
-#define MT_DOSDATA 8
-#define MT_IFS     9
+#define MT_RESERVED 7
+#define MT_DEVICE  8
+#define MT_DOSDATA 9
+#define MT_IFS     10
 
 int num_lines = -1;
 
@@ -684,7 +691,7 @@ static unsigned round_seg_kb(unsigned para)
     return ((para + 32) / 64);
 }
 
-static void convert(char *format, ulong num)
+static void convert(const char *format, ulong num)
 {
     int c, i, j, n;
     char des[4*sizeof(ulong)];
@@ -935,7 +942,7 @@ static UPPERINFO *check_upper(MINFO *mlist)
 	}
 
     upper = xcalloc(1, sizeof(UPPERINFO));
-    lastconseg = biosmemory()*64 - 1;
+    lastconseg = biosmemory()*64;
     while (mlist!=NULL && mlist->seg != lastconseg)
         mlist=mlist->next;
     
@@ -952,7 +959,7 @@ static UPPERINFO *check_upper(MINFO *mlist)
                 upper->largest = size;
 
 	}
-	if (mlist->type < MT_DEVICE)
+	if (mlist->type < MT_RESERVED)
 	    upper->total += size;
         mlist=mlist->next;
     }
@@ -996,7 +1003,7 @@ static void check_name(char *dest, const char far *src, size_t length)
     dest[length] = '\0';
     while(length--) {
         unsigned char ch = (unsigned char)*src++;
-        *dest++ = (ch == '\0' ? '\0' : ch <= ' ' ? ' ' : toupper(ch));
+        *dest++ = (ch == '\0' ? '\0' : ch <= ' ' ? ' ' : ch);
     }
 }
 
@@ -1067,7 +1074,18 @@ static MINFO *register_dos_mcb(MINFO *mlist)
             mlist->type=MT_SYSDATA;
             mlist=search_sd(mlist);
         } else {
-            mlist->type=MT_SYSCODE;
+	    /* can be either system code or an UMB hole */
+	    unsigned seg = mlist->seg + 1;
+	    unsigned convmemsize = biosmemory()*64;
+	    mlist->type = MT_SYSCODE;
+	    /* no  holes in conv mem */
+	    if (seg == convmemsize || (seg > convmemsize
+	    /* the heuristic: starts at 512 byte boundary, 
+	       has size a multiple of 512 (32 paragraphs) */
+		&& ((seg & 511) == 0) && ((mlist->size & 31) == 0))) {
+		mlist->name = "";
+		mlist->type = MT_RESERVED;
+	    }
         }
     }
     return mlist;
@@ -1087,23 +1105,15 @@ static void program_mcb(MINFO *mlist)
 static MINFO *register_mcb(MINFO *mlist)
 {
     MCB far *mcb = MK_FP(mlist->seg, 0);
-    MINFO *mlist2;
 
     mlist->name="";    
     mlist->owner=mcb->owner;
     mlist->size=mcb->size;
-    mlist2=register_dos_mcb(mlist);
-    if (mlist->seg <= biosmemory()*64 - 1)
-        {
-        if (is_psp(mlist->seg) || mlist->owner == mlist->seg + 1)
-            program_mcb(mlist);
-        }
+    if (is_psp(mlist->seg) || mlist->owner == mlist->seg + 1)
+        program_mcb(mlist);
     else
-        {
-        if (mlist->owner > 0x0008)
-            program_mcb(mlist);
-        }
-    return mlist2;
+        mlist=register_dos_mcb(mlist);
+    return mlist;
 }
 
 static MINFO *make_mcb_list(unsigned *convmemfree)
@@ -1142,6 +1152,10 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     for (mlist=mlistroot; mlist!=NULL; mlist=mlist->next) {
         MINFO *mlistj;
         
+        if (mlist->type == MT_FREE && mlist->next->type == MT_RESERVED) {
+	    /* adjust to make the reserved area clear */
+	    mlist->next->seg++;
+	}
         if (mlist->type == MT_PROGRAM) {
             for(mlistj=mlistroot;mlistj!=NULL;mlistj=mlistj->next) {
                 if ((mlist->seg != mlistj->seg)
@@ -1165,7 +1179,7 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     freemem = 0;
 
     /* get free memory */
-    for (mlist=mlistroot; mlist->next !=NULL; mlist=mlist->next) {
+    for (mlist=mlistroot; mlist!=NULL; mlist=mlist->next) {
         if ((mlist->type == MT_FREE || mlist->seg + 1 == _psp)
             && mlist->seg < convtopseg)
             freemem += mlist->size + 1;
@@ -1337,7 +1351,8 @@ static void print_entry(MINFO *entry)
 {
     static char *typenames[]= { "", "free", "system code", "system data",
                                 "program", "environment", "data area",
-                                "device driver", "data area", "IFS" };
+				"reserved", "device driver", "data area", 
+				"IFS" };
     char *space = "";
     if (entry->type >= MT_DEVICE)
         space = " ";
@@ -1345,10 +1360,10 @@ static void print_entry(MINFO *entry)
            entry->seg, (ulong)entry->size*16, space, entry->name, typenames[entry->type]);
 }
 
-static void print_classify_value(unsigned n)
+static void print_classify_value(const char *format, unsigned n)
 {
     char kbuf[8];
-    convert("%11s", n*16UL);
+    convert(format, n*16UL);
     sprintf(kbuf, "(%uK)", round_seg_kb(n));
     printf("%8s", kbuf);
 }
@@ -1356,9 +1371,9 @@ static void print_classify_value(unsigned n)
 static void print_classify_entry(char *name, unsigned total_conv, unsigned total_umb)
 {
     printf("  %-9s", name);
-    print_classify_value(total_conv + total_umb);
-    print_classify_value(total_conv);
-    print_classify_value(total_umb);
+    print_classify_value("%9s", total_conv + total_umb);
+    print_classify_value("%11s", total_conv);
+    print_classify_value("%11s", total_umb);
     printf("\n");
 }
 
@@ -1369,24 +1384,22 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
     unsigned convtopseg = biosmemory()*64;
 
     printf("\nModules using memory below 1 MB:\n\n");
-    printf("  Name             Total           Conventional       Upper Memory\n");
-    printf("  ----------  ----------------   ----------------   ----------------\n");
+    printf("  Name           Total           Conventional       Upper Memory\n");
+    printf("  --------  ----------------   ----------------   ----------------\n");
     /* figure out code used by "SYSTEM" */
     ml = make_mcb_list(NULL);
     total_conv = ml->seg; total_umb = 0;
     for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next) {
-        if (ml->owner == _psp || ml->seg == convtopseg - 1)
+        if (ml->owner == _psp || ml->type == MT_DOSDATA 
+	    || ml->type == MT_RESERVED)
             ml->classified = 1;
         else if (ml->type == MT_SYSCODE || ml->type == MT_SYSDATA
 		 || ml->type >= MT_DEVICE) {
             int size = ml->size + 1;
 	    if (ml->type == MT_DEVICE)
 		size = -(size - 1);
-	    else {
+	    else
 		ml->classified = 1;
-		if (ml->type == MT_DOSDATA)
-		    size = 0;
-	    }
             if (ml->seg < convtopseg)
                 total_conv += size;
             else
@@ -1755,7 +1768,8 @@ int main(int argc, char *argv[])
         
     if (flags & F_HELP)
 	{
-	printf("Displays the amount of used and free memory in your system.\n\n"
+	printf("FreeDOS MEM version 1.6\n"
+	       "Displays the amount of used and free memory in your system.\n\n"
 	       "Syntax: MEM [/E] [/F] [/D] [/U] [/X] [/P] [/?]\n"
 	       "  /E  Reports all information about Expanded Memory\n"
 	       "  /F  Full list of memory blocks\n"

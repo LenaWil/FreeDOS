@@ -4,7 +4,7 @@ MEM Bugs
 Known Bugs
 ----------
 
-(wishlist): No MS compatible output and switches ("program", "classify", "debug").
+(wishlist): No complete MS compatible output and switches ("module", "program", "debug").
 
 Bug Reports
 -----------
