@@ -1,6 +1,6 @@
 /* $Id$ */
 
-/* Copyright (C) 1999 Jim Hall, jhall1@isd.net */
+/* Copyright (C) 1999,2000 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -20,13 +20,7 @@
 
 
 #include <stdio.h>
-
-#ifdef unix
-#include "conio.h"
-#else
 #include <conio.h>
-#endif /* unix */
-
 
 void
 repaint_empty (void)
