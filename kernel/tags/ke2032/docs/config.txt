@@ -1,0 +1,175 @@
+Advanced - FreeDOS specific - CONFIG.SYS processing
+
+a new command DOSDATA=UMB
+DOSDATA=UMB loads some FreeDOS specific stuff in Upper Memory Blocks,
+like the RAM that FILESHIGH, LASTDRIVEHIGH, and STACKSHIGH occupy
+
+a new command ECHO
+ECHO does ECHO its argument (surprised ?-) and is executed at
+the time the DEVICE= lines are executed.
+use it similarly to
+
+	ECHO loading driver 1
+	device=Driver1.sys
+	ECHO driver1 successfully loaded
+
+a new command called EECHO is also available, for echo-ing ANSI Escape Sequences
+(redefines keyboard input for example).
+
+
+an undocumented command SCREEN=xx
+SCREEN= switches into videomode xxx  (INT10/11xx/000)
+useful 
+	SCREEN=0x11   -- 28    lines
+	SCREEN=0x12   -- 43/50 lines (on EGA/VGA)
+
+
+
+the following advanced config.sys processing options are available:
+
+normal
+	FILES=20
+	DEVICE=MyNetWorkDriver.sys
+
+'?' - ALWAYS ask if a single line shall be executed
+
+	FILES=20
+	?DEVICE=MyNetWorkDriver.sys
+
+
+'!' - NEVER ask if a single line shall be executed, even if single stepping
+
+	!FILES=20
+	!DOS=HIGH,UMB
+	!BUFFERS=30
+	DEVICE=MyNetWorkDriver.sys
+
+
+
+configuration management - you may compose several configurations,
+using following special commands:
+
+MENU
+MENU  select your configuration
+MENU
+MENU  use (0) for basic configuration
+MENU  use (1) for CDROM operation
+MENU  use (2) for NETWORK configuration
+MENU
+MENUDEFAULT=0,1				( configuration 0, wait 1 second)
+
+
+1?  rem CDROM
+1?  device=CDROM.SYS
+
+2?  rem NETWORK
+2?  device=MyNetworkDriver.SYS
+
+
+Although this is definitively worse then MSDOS menuing possibilities,
+IMHO it's better then nothing. 
+
+It's also possible to combine menu options, to avoid writing thing every 
+time again.
+constructions like 0?devicehigh?=cdrom.sys are also possible
+("if menu option 0 chosen, ask if you want to load this driver")
+
+the selected configuration can be determined in AUTOEXEC.BAT in the
+environment variable CONFIG like
+
+        if %CONFIG% == 0 echo configuration 0 selected
+
+however, if you have no menu's in config.sys, then %config% has no value,
+thus resulting in "IF == 0 echo configuration 0 selected."
+(which causes syntax errors as there's nothing on the left side of == )
+
+That's why you better use something like:
+if [%config%]==[0] echo configuration 0 selected.        -or-
+if "%config%"=="0" echo configuration 0 selected.
+
+then if there is no menu you have: "IF []==[0] echo configuration 0 selected."
+(which will of course output nothing)
+
+thus my config.sys now looks like
+
+
+!files=20
+!dos=high,umb
+!break=off
+!buffers=30
+!screen=0x12
+!lastdrive=z
+!shellhigh=a:\command.com /p /e:512 /MSG
+
+MENU
+MENU 0 - SoftIce+HIMEM+Network (default)
+MENU 1 - SoftIce+HIMEM
+MENU 2 -         HIMEM+EMM386
+MENU
+MENUDEFAULT=0,0
+
+
+01? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
+012?DEVICE=himem.exe
+01? DEVICE=UMBPCI.SYS
+2?  DEVICE=EMM386.EXE NOEMS
+
+0?device=c:\ntclient\ifshlp.sys
+
+DEVICE=ATAPICDD.SYS /D:MSCD000
+
+Full Screen Menus (thanks to Rune Espeseth)
+
+Use MENUCOLOR=foreground[,background] to obtain a full screen menu
+where you can use the arrow keys. Example (note that box drawing
+characters are used that look strange in other character sets):
+
+REM *** This is the FreeDos Config.sys ***
+REM *** executed before autoexec.bat   ***
+
+REM *** Set white foreground, red background ***
+menucolor=7,4
+
+files=20
+buffers=20
+
+REM *** The Menu ***
+MENU
+MENU  ษอออออออออออออออออออออออออออออออออออออออออออออออออออออออป
+MENU  บ My Menu - FreeDOS rules!                              บ
+MENU  ฬอออออออออออออออออออออออออออออออออออออออออออออออออออออออน
+MENU  บ                                                       บ
+MENU  บ   1. Test with border                                 บ
+MENU  บ                                                       บ
+MENU  บ   2. Another test...                                  บ
+MENU  บ                                                       บ
+MENU  บ   3. Third choice                                     บ
+MENU  บ                                                       บ
+MENU  บ   4. Fourth choice.                                   บ
+MENU  บ                                                       บ
+MENU  ศอออออออออออออออออออออออออออออออออออออออออออออออออออออออผ
+MENU
+
+MENUDEFAULT=1,10		( configuration 1, wait 10 seconds)
+
+1?  REM 1st choice
+1?  ECHO You selected menu #1 
+
+2?  REM 2nd choice
+2?  ECHO You selected menu #2
+
+3?  REM 3rd choice
+3?  ECHO You selected menu #3
+
+4?  REM 4th choice
+4?  ECHO You selected menu #4
+
+
+
+
+
+
+
+2002-11-28 - Tom Ehlert
+2003-07-15 - Bernd Blaauw
+2003-09-18 - Bart Oldeman
