@@ -22,7 +22,9 @@
 #if !defined (_DAT_H)
 #define _DAT_H
 
-#define DAT_NAME_LEN 9			/* same as MAXFILE in <dir.h> */
+#include <stdlib.h>   /* FILE * */
+
+#define DAT_NAME_LEN 260	/* no less than MAXFILE in <dir.h> */
 
 typedef struct {
   char name[DAT_NAME_LEN];		/* base filename */
