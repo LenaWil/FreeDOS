@@ -1,11 +1,18 @@
 Changes to the Free-DOS Install program:
 
-Copyright (C) Jim Hall <jhall@freedos.org>
+Maintained by Jeremy Davis <jeremyd@computer.org>
+Copyright (C) 1998-2002 Jim Hall <jhall@freedos.org>
 
 ______________________________________________________________________
 
 This file lists the changes since the FreeDOS Install program was
 moved into CVS on SourceForge (see http://freedos.sourceforge.net):
+
+3.7.7 (VER_3_7_7) - Added a Swedish translation of the Install
+  program, by Martin Stromberg.  [Aug 15, 2002]
+
+3.7.6 (VER_3_7_6) - critical error fixes.  Jeremy Davis is now the
+ maintainer.
 
 3.7.5 (VER_3_7_5a) - changes by Jeremy Davis to fix bug introduced by
  previous changes: install.c and inst.c would indicate failure to
