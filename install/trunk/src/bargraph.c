@@ -1,6 +1,6 @@
-/* bargraph.c */
+/* $Id$ */
 
-/* Copyright (C) 2000, Jim Hall <jhall1@isd.net> */
+/* Copyright (C) 2000, Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -20,12 +20,7 @@
 
 
 #include <stdio.h>
-
-#ifdef unix
-#include "conio.h"
-#else /* dos */
 #include <conio.h>
-#endif
 
 #include "bargraph.h"
 
