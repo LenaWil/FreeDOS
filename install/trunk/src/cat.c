@@ -74,6 +74,16 @@ void cat_cputs(const char *msg)
    filename.TXT
    filename
    repeat above search, except instead of current dir, use each path in %NLSPATH%
+   Then if still NOT found and %LANG% is NOT "en" or "en-??"
+     repeat above search (current directory, followed by %NLSPATH%) but 
+     using LANG of "en" [i.e. If not found for requested language, default to english,
+     Please note if an english version exists in the current directory with at
+     .TXT extension (or as filename) and a version in the requested language
+     exists, but it is in a directory specified by %NLSPATH%, then the english one
+     will be used.  The addition of the default english search path is to avoid
+     that situation by allowing the english files to be renamed .EN or placed in
+     the normal %NLSPATH% search directories, but still be used if one in the
+     requested language is not found.]
    if still not found then return failure (-1)
    if found then returns number of lines printed
 */
@@ -206,10 +216,10 @@ FILE * tryvariations(const char *flags, const char *basepath, const char *name, 
     if ((stream = trypath(flags, basepath, name, lang_2)) != NULL) return stream;  
   }
 
-  /* .\filename.TXT */
+  /* basepath\filename.TXT */
   if ((stream = trypath(flags, basepath, name, ".TXT")) != NULL) return stream;  
 
-  /* .\filename */
+  /* basepath\filename */
   if ((stream = trypath(flags, basepath, name, NULL)) != NULL) return stream;  
 
   /* Failed to open any of the variants, return failure */
@@ -217,15 +227,70 @@ FILE * tryvariations(const char *flags, const char *basepath, const char *name, 
 }
 
 
-/* This function based on catopen from Jim Hall's catgets */
-FILE *langfopen(const char *name, const char *flags)
+/* Calls the tryvariations routine to attempt to open the file using the 
+   lang (language) given, 1st trying current directory, then directories
+   specified by %NLSPATH%
+   This function based on catopen from Jim Hall's catgets.
+*/
+FILE *searchWithLang(const char *flags, const char *name, const char *lang)
 {
   FILE *stream;
   char nlspath[MAXPATH];		/* value of %NLSPATH% */
   char *nlsptr;				/* ptr to NLSPATH */
-  char *lang;                           /* ptr to LANG */
   char lang_2[3];                       /* 2-char version of %LANG% */
   char *tok;                            /* pointer when using strtok */
+
+  /* If no language given, then always fail, an empty lang=="" is acceptable */
+  if (lang == NULL) return NULL;
+
+  /* Get 2-char version of language */
+  strncpy (lang_2, lang, 2);
+  lang_2[2] = '\0';
+
+  /* first search relative to current directory (or root if name starts with DIR_CHAR) */
+  if ((stream = tryvariations(flags, "", name, lang, lang_2)) != NULL) return stream;
+
+  /* repeat above search, except instead of current dir based, use each path in %NLSPATH% */
+  /* step through NLSPATH */
+
+  nlsptr = getenv ("NLSPATH");
+
+  if (nlsptr == NULL)
+    {
+      /* Return failure - we won't be able to locate the file */
+      return NULL;
+    }
+
+  strcpy (nlspath, nlsptr);
+
+  tok = strtok (nlspath, ";");
+  while (tok != NULL)
+    {
+      if ((stream = tryvariations(flags, tok, name, lang, lang_2)) != NULL) return stream;
+
+      /* Grab next tok for the next while iteration */
+      tok = strtok (NULL, ";");
+    } /* while tok */
+
+  /* We could not find it.  Return failure. */
+  return NULL;
+}
+
+/* Attempts to open a localized version of the given file
+   specified by name.  The call is equivalent to fopen, 
+   except several variations of 'name' are tried, based on
+   the current language specified by %LANG% and several
+   directories are searched, beginning with the current
+   directory, followed by those in NLSPATH.  If none are
+   found, the search is repeated but using english ("EN"),
+   and should that fail, the call will fail by returing
+   NULL.  On success the FILE* returned by fopen using
+   the flags given in the flags argument is returned.
+*/
+FILE *langfopen(const char *name, const char *flags)
+{
+  FILE *stream;
+  char *lang;                           /* ptr to LANG */
 
 #ifdef PATHSPECIFIED
   if (strchr (name, DIR_CHAR))
@@ -245,37 +310,10 @@ FILE *langfopen(const char *name, const char *flags)
   if (lang == NULL)
     lang = "EN";
 
-  strncpy (lang_2, lang, 2);
-  lang_2[2] = '\0';
-
-
-  /* first search relative to current directory (or root if name starts with DIR_CHAR) */
-  if ((stream = tryvariations(flags, "", name, lang, lang_2)) != NULL) return stream;
-
-  /* repeat above search, except instead of current dir based, use each path in %NLSPATH% */
-  /* step through NLSPATH */
-
-  nlsptr = getenv ("NLSPATH");
-
-  if (nlsptr == NULL)
-    {
-      /* Return failure - we won't be able to locate the cat file */
-      return NULL;
-    }
-
-  strcpy (nlspath, nlsptr);
-
-  tok = strtok (nlspath, ";");
-  while (tok != NULL)
-    {
-      if ((stream = tryvariations(flags, tok, name, lang, lang_2)) != NULL) return stream;
-
-      /* Grab next tok for the next while iteration */
-      tok = strtok (NULL, ";");
-    } /* while tok */
-
-  /* We could not find it.  Return failure. */
-  return NULL;
+  if ((stream = searchWithLang(flags, name, lang)) == NULL) 
+    if (strncmpi(lang, "EN", 2) != 0)
+      stream = searchWithLang(flags, name, "EN");
+  return stream;
 }
 
 
@@ -304,6 +342,7 @@ int main(int argc, char *argv[])
            "   \n"
            "   Repeat above search, except instead of .,\n"
            "     use each ; separated path in %NLSPATH%\n"
+           "   If still not found & %LANG% != 'EN' or 'EN-??' repeat assuming 'EN'\n"
            "   If still not found then prints an error message indicating not found.\n"
     );
     return 1;
