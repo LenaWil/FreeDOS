@@ -1,0 +1,8 @@
+# this is a DOS makefile
+
+CFLAGS=-ml -DNDEBUG
+
+all: lsm_desc.obj
+
+clean:
+	del *.obj
