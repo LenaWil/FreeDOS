@@ -21,27 +21,16 @@
 #include <string.h>			/* for strcmp */
 #include <conio.h>			/* DOS conio */
 
-#include "catgets.h"			/* DOS catopen, catgets */
-
-#include "cat.h"			/* for cat_file */
-#include "dat.h"			/* for dat_read */
-#include "getch_yn.h"			/* for getch_yn */
+#include "catgets.h"			/* DOS catopen(), catgets() */
+#include "cat.h"			/* for cat() */
+#include "dat.h"			/* for dat_read() */
 #include "inst.h"			/* for inst_t */
-#include "repaint.h"
-
-/* Symbolic constants */
-
-#define DAT_FILE "install.dat"		/* top-level dat file */
-#define OEM_FILE "oem.txt"		/* text file for vendors */
-
-#define INIT_DAT_SIZE 10		/* Initial size of dat array */
+#include "repaint.h"			/* repaint_empty() */
+#include "sel_list.h"			/* select_yn() */
 
 /* Functions */
 
 inst_t install_top (dat_t *dat_ary, int dat_count);
-
-void install_hello (void);
-void install_oem (void);
 
 /* Globals */
 
@@ -54,7 +43,7 @@ main (int argc, char **argv)
 {
   char *s;
   int dat_count;			/* size of the dat array */
-  int dat_size = INIT_DAT_SIZE;		/* malloc size of the dat array */
+  int dat_size = 10;			/* malloc size of the dat array */
   int i;
 
   dat_t *dat_ary;			/* the dat file array */
@@ -79,18 +68,14 @@ main (int argc, char **argv)
   dat_ary = malloc (sizeof (dat_t) * dat_size);
   if (dat_ary == NULL)
     {
-      fprintf (stderr, "Error!\n");
       fprintf (stderr, "Unable to allocate memory for install data file!\n");
-      fprintf (stderr, "The file was %s\n", DAT_FILE);
       exit (2);
     }
 
-  dat_count = dat_read (DAT_FILE, dat_ary, dat_size);
+  dat_count = dat_read ("INSTALL.DAT", dat_ary, dat_size);
   if (dat_count < 1)
     {
-      fprintf (stderr, "Error!\n");
       fprintf (stderr, "The install data file is empty!\n");
-      fprintf (stderr, "The file was %s\n", DAT_FILE);
       free (dat_ary);
       exit (3);
     }
@@ -101,8 +86,21 @@ main (int argc, char **argv)
   textbackground (BLUE);
   textcolor (WHITE);
 
-  install_hello();
-  install_oem();
+  repaint_empty();
+  gotoxy (2, 3);
+  cat_file ("COPYR.TXT", 10);
+  s = catgets (cat, 1, 0, "Press any key to continue");
+  gotoxy (2, 25);
+  cputs (s);
+  getch();
+
+  repaint_empty();
+  gotoxy (2, 3);
+  cat_file ("OEM.TXT", 10);
+  s = catgets (cat, 1, 0, "Press any key to continue");
+  gotoxy (2, 25);
+  cputs (s);
+  getch();
 
   ret.errors = 0;
   ret.warnings = 0;
@@ -132,7 +130,7 @@ main (int argc, char **argv)
   catclose (cat);
   exit (0);
 }
-
+
 inst_t
 install_top (dat_t *dat_ary, int dat_count)
 {
@@ -170,7 +168,7 @@ install_top (dat_t *dat_ary, int dat_count)
   cgets (destdir);
 
   s = catgets (cat, 1, 0, "Press any key to continue");
-  gotoxy (1, 25);
+  gotoxy (2, 25);
   cputs (s);
 
   getch();
@@ -180,7 +178,7 @@ install_top (dat_t *dat_ary, int dat_count)
   for (i = 0; i < dat_count; i++)
     {
       repaint_empty();
-      gotoxy (1, 5);
+      gotoxy (2, 5);
       s = catgets (cat, 3, 0, "Disk set:");
       cputs (s);
       cputs (dat_ary[i].name);
@@ -191,10 +189,10 @@ install_top (dat_t *dat_ary, int dat_count)
 
       _makepath (txtfile, "", "", dat_ary[i].name, "TXT");
 
-      gotoxy (1, 10);
+      gotoxy (2, 10);
       cat_file (txtfile, 10 /* no. lines */);
 
-      gotoxy (1, 6);
+      gotoxy (2, 6);
       switch (dat_ary[i].rank)
 	{
 	case 'Y':
@@ -202,7 +200,7 @@ install_top (dat_t *dat_ary, int dat_count)
 	  s = catgets (cat, 4, 1, "REQUIRED");
 	  cputs (s);
 
-	  gotoxy (1, 25);
+	  gotoxy (2, 25);
 	  s = catgets (cat, 1, 0, "Press any key to continue");
 	  cputs (s);
 	  getch();
@@ -219,22 +217,17 @@ install_top (dat_t *dat_ary, int dat_count)
 	  s = catgets (cat, 4, 0, "OPTIONAL");
 	  cputs (s);
 
-	  gotoxy (1, 25);
 	  s = catgets (cat, 2, 2, "Do you want to install this disk set? [yn] ");
-	  cputs (s);
-	  ch = getch_yn();
+	  ch = select_yn (s, "Yes", "No");
 
 	  switch (ch)
 	    {
-	    case 'Y':
-	    case 'y':
+	    case 0:
 	      dat_ary[i].rank = 'y';
-	      cputs ("Y");
 	      break;
 
 	    default:
 	      dat_ary[i].rank = 'n';
-	      cputs ("N");
 	      break;
 	    } /* switch ch */
 	  break;
@@ -262,59 +255,4 @@ install_top (dat_t *dat_ary, int dat_count)
   /* Done */
 
   return (ret);
-}
-
-void
-install_hello (void)
-{
-  char *s;
-
-  /* Say hello */
-
-  repaint_empty();
-
-  s = catgets (cat, 0, 0, "FreeDOS Install - Copyright (C) 1998-2000 Jim Hall");
-  gotoxy (1, 10);
-  cputs (s);
-
-  s = catgets (cat, 0, 1, "This is free software, and you are welcome to redistribute it");
-  gotoxy (1, 11);
-  cputs (s);
-
-  s = catgets (cat, 0, 2, "under certain conditions; see the file COPYING for details.");
-  gotoxy (1, 12);
-  cputs (s);
-
-  s = catgets (cat, 0, 3, "Install comes with ABSOLUTELY NO WARRANTY");
-  gotoxy (1, 13);
-  cputs (s);
-
-  /* Wait for a keypress */
-
-  s = catgets (cat, 1, 0, "Press any key to continue");
-  gotoxy (1, 25);
-  cputs (s);
-
-  getch();
-}
-
-void
-install_oem (void)
-{
-  char *s;
-
-  /* Show the OEM file */
-
-  repaint_empty();
-
-  gotoxy (1, 10);
-  cat_file (OEM_FILE, 10 /* no. lines */);
-
-  /* Wait for a keypress */
-
-  s = catgets (cat, 1, 0, "Press any key to continue");
-  gotoxy (1, 25);
-  cputs (s);
-
-  getch();
 }
