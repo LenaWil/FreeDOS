@@ -16,13 +16,13 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define INSTALL_VERSION "3.7.4-unofficial"
+#define INSTALL_VERSION "3.7.5-unofficial"
 
 
 #include <stdio.h>
-#include <stdlib.h>			/* for malloc */
-#include <string.h>			/* for strcmp */
-#include <conio.h>			/* DOS conio */
+#include <stdlib.h>                 /* for malloc */
+#include <string.h>                 /* for strcmp */
+#include <conio.h>                  /* DOS conio */
 
 #include "globals.h"			/* nl_catd cat language catalog */
                                     /* char *yes localized version  */
@@ -30,31 +30,32 @@
                                     /* int nopauseflag, 0=pause,    */
                                     /* 1=don't pause ie autoinstall */
                                     /* and #include "catgets.h"     */
-/* #include "catgets.h"			/* DOS catopen(), catgets() */
-#include "cat.h"			/* for cat() */
-#include "dat.h"			/* for dat_read() */
+/* #include "catgets.h"	            /* DOS catopen(), catgets() */
+#include "cat.h"                    /* for cat() */
+#include "dat.h"                    /* for dat_read() */
 #include "dir.h"
-#include "inst.h"			/* for inst_t */
-#include "repaint.h"			/* repaint_empty() */
-#include "sel_list.h"			/* select_yn() */
-#include "pause.h"			/* for pause() */
+#include "inst.h"                   /* for inst_t */
+#include "repaint.h"                /* repaint_empty() */
+#include "sel_list.h"               /* select_yn() */
+#include "pause.h"                  /* for pause() */
 #include "cdp.h"                    /* createdestpath() */
-#include "log.h"			/* openlog(), log(), closelog() */
-#include "cchndlr.h"			/* SIGINT (ctrl-c) handler */
+#include "log.h"                    /* openlog(), log(), closelog() */
+#include "cchndlr.h"                /* SIGINT (ctrl-c) handler */
 
 #include "text.h"                   /* All strings displayed */
 
-/* Functions */
 
+/* Functions */
 inst_t install_top (dat_t *dat_ary, int dat_count);
+void getLocalizedYesNo(void);
 
 
 /* Globals local to this file only */
-char fromdir[MAXDIR];		/* path to install from */
-char destdir[MAXDIR];		/* path to install to */
-int fromdirflag = 0;			/* 0=prompt user,    */
-int destdirflag = 0;			/* 1=on command line */
-int wantlog = 1;				/* user wants to log activity */
+char fromdir[MAXDIR];               /* path to install from */
+char destdir[MAXDIR];               /* path to install to */
+int fromdirflag = 0;                /* 0=prompt user,    */
+int destdirflag = 0;                /* 1=on command line */
+int wantlog = 1;                    /* user wants to log activity */
 
 
 /* program starts here */
@@ -62,15 +63,14 @@ int wantlog = 1;				/* user wants to log activity */
 int
 main (int argc, char **argv)
 {
-  char *s;
-  int dat_count;				/* size of the dat array */
+  int dat_count;                    /* size of the dat array */
   int i;
-  int mono = 0;				/* running on monochrome monitor */
+  int mono = 0;                     /* running on monochrome monitor */
 
-  dat_t *dat_ary;				/* the dat file array */
-  inst_t ret;				/* no. of errors, warnings */
+  dat_t *dat_ary;                   /* the dat file array */
+  inst_t ret;                       /* no. of errors, warnings */
 
-  struct text_info ti;			/* (borland) for gettextinfo */
+  struct text_info ti;              /* (borland) for gettextinfo */
  
 
   /* Open the language catalog */
@@ -107,52 +107,38 @@ main (int argc, char **argv)
 
   /* unzip overwrites screen with warning if TZ not set, so check    */
   /* and if not set, then set for us to GMT0, which means no offsets */
-  if ((s = getenv("TZ")) == NULL) putenv("TZ=GMT0");
+  if (getenv("TZ") == NULL) putenv("TZ=GMT0");
 
 
   /* Read dat file */
 
   dat_ary = dat_read ("INSTALL.DAT", &dat_count);
   if (dat_ary == NULL)
+  {
+    if (dat_count > 0)
     {
       fprintf (stderr, catgets (cat, SET_ERRORS, MSG_ERRALLOCMEMDF, MSG_ERRALLOCMEMDF_STR));
       exit (2);
     }
-  if (dat_count < 1)
+    else /* Either error reading file, eg no file, or file has no entries */
     {
       fprintf (stderr, catgets (cat, SET_ERRORS, MSG_ERREMPTYDATAFILE, MSG_ERREMPTYDATAFILE_STR));
-      free (dat_ary);
       exit (3);
     }
+  }
 
   /* Get localized "Yes" and "No" strings */
-
-  s = catgets (cat, SET_PROMPT_YN, MSG_YES, MSG_YES_STR);
-  yes = (char *)malloc((strlen(s)+1)*sizeof(char));
-  if (yes == NULL)
-  {
-    s = catgets(cat, SET_ERRORS, MSG_ERRORALLOCMEM, MSG_ERRORALLOCMEM_STR);
-    fprintf(stderr, s);
-    exit (4);
-  }
-  strcpy(yes, s);
-  s = catgets (cat, SET_PROMPT_YN, MSG_NO, MSG_NO_STR);
-  no = (char *)malloc((strlen(s)+1)*sizeof(char));
-  strcpy(no, s);
-  if (no == NULL)
-  {
-    s = catgets(cat, SET_ERRORS, MSG_ERRORALLOCMEM, MSG_ERRORALLOCMEM_STR);
-    fprintf(stderr, s);
-    exit (5);
-  }
-
+  getLocalizedYesNo();
 
   /* register our SIGINT handler (Ctrl-C) */
   registerSIGINTHandler();
 
   /* Start the install */
 
+  /* save current setting so we can restore them */
   gettextinfo (&ti);
+
+  /* setup screen colors then draw the screen */
   if (mono)
   {
     textbackground (BLACK);
@@ -181,20 +167,13 @@ main (int argc, char **argv)
 
   /* Finished with install */
 
-  textattr (ti.attribute);
+  textattr (ti.attribute); /* restore user's screen */
   clrscr();
 
   if ((ret.errors == 0) && (ret.warnings == 0))
-    {
-      s = catgets (cat, SET_GENERAL, MSG_INSTALLOK, MSG_INSTALLOK_STR);
-      printf (s);
-    }
-
+      printf (catgets (cat, SET_GENERAL, MSG_INSTALLOK, MSG_INSTALLOK_STR));
   else
-    {
-      s = catgets (cat, SET_GENERAL, MSG_INSTALLERRORS, MSG_INSTALLERRORS_STR);
-      printf (s, ret.errors, ret.warnings);
-    }
+      printf (catgets (cat, SET_GENERAL, MSG_INSTALLERRORS, MSG_INSTALLERRORS_STR), ret.errors, ret.warnings);
 
   /* Done */
 
@@ -215,12 +194,12 @@ install_top (dat_t *dat_ary, int dat_count)
   /* Top-level piece for the install program.  Determines what disk
      sets the user wants to install, then installs them. */
 
-  char *s;
-  char txtfile[MAXPATH];		/* name of text descr file */
+  char *s;                          /* used for retrieving localized text */
+  char txtfile[MAXPATH];            /* name of text descr file */
   int ch;
   int i;
-  inst_t ret;				/* return: no. of errors,warnings */
-  inst_t this;				/* no. of errors,warnings */
+  inst_t ret;                       /* return: no. of errors,warnings */
+  inst_t this;                      /* no. of errors,warnings */
 
   /* Where to install from, to */
 
@@ -375,13 +354,36 @@ install_top (dat_t *dat_ary, int dat_count)
 
 
   /* close the log file, if user wanted it */
-  if (wantlog)
-  {
-    log("</install>\n");
-    closelog();
-  }
+  log("</install>\n");
+  closelog();
 
   /* Done */
-
   return (ret);
+}
+
+
+/* Get localized "Yes" and "No" strings for yes/no prompts */
+void getLocalizedYesNo(void)
+{
+  char *s;
+
+  s = catgets (cat, SET_PROMPT_YN, MSG_YES, MSG_YES_STR);
+  yes = (char *)malloc((strlen(s)+1)*sizeof(char));
+  if (yes == NULL)
+  {
+    s = catgets(cat, SET_ERRORS, MSG_ERRORALLOCMEM, MSG_ERRORALLOCMEM_STR);
+    fprintf(stderr, s);
+    exit (4);
+  }
+  strcpy(yes, s);
+
+  s = catgets (cat, SET_PROMPT_YN, MSG_NO, MSG_NO_STR);
+  no = (char *)malloc((strlen(s)+1)*sizeof(char));
+  if (no == NULL)
+  {
+    s = catgets(cat, SET_ERRORS, MSG_ERRORALLOCMEM, MSG_ERRORALLOCMEM_STR);
+    fprintf(stderr, s);
+    exit (5);
+  }
+  strcpy(no, s);
 }

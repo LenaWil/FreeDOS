@@ -19,25 +19,25 @@
 */
 
 #include <stdio.h>
-#include <stdlib.h>			/* for system(), free() */
-#include <conio.h>			/* DOS conio */
+#include <stdlib.h>                 /* for system(), free() */
+#include <conio.h>                  /* DOS conio */
 
-#include "globals.h"			/* cat, yes, no, "catgets.h" */
-#include "bargraph.h"			/* for bargraph() */
-#include "box.h"			/* box() */
-#include "dat.h"			/* data file functions */
-#include "cat.h"			/* for cat_file() */
-#include "inst.h"			/* for this file */
-#include "isfile.h"			/* for isfile() */
-#include "lsm.h"			/* Linux LSM files */
-#include "repaint.h"			/* for repaint() */
-#include "sel_list.h"			/* select_yn() */
-#include "unz.h"			/* for UzpMain() */
+#include "globals.h"                /* cat, yes, no, "catgets.h" */
+#include "bargraph.h"               /* for bargraph() */
+#include "box.h"                    /* box() */
+#include "dat.h"                    /* data file functions */
+#include "cat.h"                    /* for cat_file() */
+#include "inst.h"                   /* for this file */
+#include "isfile.h"                 /* for isfile() */
+#include "lsm.h"                    /* Linux LSM files */
+#include "repaint.h"                /* for repaint() */
+#include "sel_list.h"               /* select_yn() */
+#include "unz.h"                    /* for UzpMain() */
 #include "dir.h"
-#include "pause.h"			/* for pause() */
-#include "text.h"			/* All strings displayed */
-#include "log.h"			/* for log() */
-#include "cchndlr.h"			/* for reregisterSIGINTHandler() */
+#include "pause.h"                  /* for pause() */
+#include "text.h"                   /* All strings displayed */
+#include "log.h"                    /* for log() */
+#include "cchndlr.h"                /* for reregisterSIGINTHandler() */
 
 
 
@@ -46,14 +46,14 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 {
   /* Variables */
 
-  char endfile[MAXPATH];		/* marks end of series */
-  char datfile[MAXPATH];		/* current DAT file */
-  char ext[MAXPATH];			/* file extension */
+  char endfile[MAXPATH];            /* marks end of series */
+  char datfile[MAXPATH];            /* current DAT file */
+  char ext[MAXPATH];                /* file extension */
   char *s;
-  int disknum = 0;			/* current disk number */
+  int disknum = 0;                  /* current disk number */
   int ch;
-  inst_t ret;				/* return: no. of errors,warnings */
-  inst_t this;				/* no. of errors,warnings */
+  inst_t ret;                       /* return: no. of errors,warnings */
+  inst_t this;                      /* no. of errors,warnings */
 
   /* Create the filenames */
 
@@ -163,18 +163,18 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 inst_t
 disk_install(const char *datfile, char *fromdir, char *destdir)
 {
-  char lsmfile[MAXPATH];		/* Linux software map file */
+  char lsmfile[MAXPATH];            /* Linux software map file */
   char *s;
 
-  int dat_count;				/* size of the dat array */
+  int dat_count;                    /* size of the dat array */
   int ret;
   int ch;
   int i;
 
-  int pkg_yesToAll = 0;			/* Assume default yes to all = not specified */
+  int pkg_yesToAll = 0;             /* Assume default yes to all = not specified */
 
-  dat_t *dat_ary;				/* the DAT array */
-  inst_t this;				/* return: no. of errors,warnings */
+  dat_t *dat_ary;                   /* the DAT array */
+  inst_t this;                      /* return: no. of errors,warnings */
 
   /* Initialize variables */
 
@@ -182,33 +182,25 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
   this.warnings = 0;
 
   /* Read dat file */
+
   dat_ary = dat_read (datfile, &dat_count);
   if (dat_ary == NULL)
-    {
-      s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
-      fprintf (stderr, s);
-      log("<error msg=\"%s\" />\n", s);
+  {
+    s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
+    fprintf (stderr, s);
+    log("<error msg=\"%s\" />\n", s);
+
+    if (dat_count > 0)
       s = catgets (cat, SET_ERRORS, MSG_ERRALLOCMEMFDF, MSG_ERRALLOCMEMFDF_STR);
-      fprintf (stderr, s);
-      log("<error msg=\"%s\" />\n", s);
-
-	pause();
-      return (this);
-    }
-  if (dat_count < 1)
-    {
-      s = catgets (cat, SET_ERRORS, MSG_ERROR, MSG_ERROR_STR);
-      fprintf (stderr, s);
-      log("<error msg=\"%s\" />\n", s);
+    else /* Either error reading file, eg no file, or file has no entries */
       s = catgets (cat, SET_ERRORS, MSG_ERREMPTYFLOPPYDATAFILE, MSG_ERREMPTYFLOPPYDATAFILE_STR);
-      fprintf (stderr, s);
-      log("<error msg=\"%s\" />\n", s);
 
+    fprintf (stderr, s);
+    log("<error msg=\"%s\" />\n", s);
 
-	pause();
-      free (dat_ary);
-      return (this);
-    }
+    pause();
+    return (this);
+  }
 
   /* Run the install */
 
@@ -236,18 +228,17 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
     fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
 
     if (isfile (lsmfile))
-      {
+    {
 	lsm_description (8, 2, 10, lsmfile);
-      }
+    }
     else
-      {
-	/* no lsm file. try it again with a plain txt file (or localized version) */
-
+    {
+	/* no lsm file. try it again with a (localized) plain txt file */
 	fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "");
 
-	    gotoxy (2, 8);
-	    cat_file (lsmfile, 10 /* no. lines */);
-	  }
+      gotoxy (2, 8);
+      cat_file (lsmfile, 10 /* no. lines */);
+    }
 
     /* Find out which ones the user wants to install */
 
