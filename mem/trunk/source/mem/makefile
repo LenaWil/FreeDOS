@@ -28,7 +28,7 @@ mem.exe: mem.obj prf.obj $(MEMSUPT)
 	upx --8086 --best mem.exe
 
 .c.obj:
-	$(CC) $(CFLAGS) $*.c
+	$(CC) $(CFLAGS) $<
 
 .asm.obj:
 	nasm -fobj $*.asm

@@ -1,7 +1,9 @@
 ;
 ; assembly support routines for FreeDOS MEM
 ;
-        group   DGROUP
+        group   DGROUP _DATA
+
+        segment	_DATA
 
         extern  _xms_drv:wrt DGROUP
 

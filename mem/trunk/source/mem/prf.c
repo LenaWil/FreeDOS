@@ -42,16 +42,7 @@
 
 static char *charp = 0;
 
-static void handle_char(int);
-static void put_console(int);
-static char * ltob(long, char *, int);
-static int do_printf(const char *, register va_list);
-int vprintf(const char * fmt, va_list arg);
-int printf(const char * fmt, ...);
-
-/* The following is user supplied and must match the following prototype */
-void cso(int);
-
+#ifndef __WATCOMC__
 int fstrlen(char far * s)
 {
   int i = 0;
@@ -61,8 +52,12 @@ int fstrlen(char far * s)
 
   return i;
 }
+#endif
 
 extern int num_lines;
+
+static void do_printf(const char * fmt, va_list arg);
+int printf(const char * fmt, ...);
 
 /* paging printf() function...added by brian reifsnyder */
 void put_console(int c)
@@ -74,7 +69,7 @@ void put_console(int c)
     if(num_lines >= 0)
     {
       line_counter++; 
-      if(line_counter >= num_lines)
+      if(line_counter >= num_lines - 1)
       {
         line_counter = 0;
         printf("\nPress <Enter> to continue or <Esc> to exit . . .");
@@ -84,7 +79,7 @@ void put_console(int c)
       }
     }
     put_console('\r');
-  }        
+  }
 
 #ifdef __WATCOMC__
   {
@@ -105,59 +100,26 @@ static void handle_char(int c)
     *charp++ = c;
 }
 
-/* ltob -- convert an long integer to a string in any base (2-16) */
-char *ltob(long n, char * s, int base)
-{
-  unsigned long u;
-  char *p, *q;
-  int c;
-
-  u = n;
-
-  if (base == -10)              /* signals signed conversion */
-  {
-    base = 10;
-    if (n < 0)
-    {
-      u = -n;
-      *s++ = '-';
-    }
-  }
-
-  p = q = s;
-  do
-  {                             /* generate digits in reverse order */
-    *p++ = "0123456789ABCDEF"[(unsigned short) (u % base)];
-  }
-  while ((u /= base) > 0);
-
-  *p = '\0';                    /* terminate the string */
-  while (q < --p)
-  {                             /* reverse the digits */
-    c = *q;
-    *q++ = *p;
-    *p = c;
-  }
-  return s;
-}
-
 #define LEFT    0
 #define RIGHT   1
+#define ZEROSFILL 2
+#define LONGARG 4
 
 /* printf -- short version of printf to conserve space */
 int vprintf(const char * fmt, va_list arg)
 {
   charp = 0;
-  return do_printf(fmt, arg);
+  do_printf(fmt, arg);
+  return 0;
 }
 
 int printf(const char * fmt, ...)
 {
   va_list arg;
-
   va_start(arg, fmt);
   charp = 0;
-  return do_printf(fmt, arg);
+  do_printf(fmt, arg);
+  return 0;
 }
 
 int sprintf(char * buff, const char * fmt, ...)
@@ -167,105 +129,86 @@ int sprintf(char * buff, const char * fmt, ...)
   va_start(arg, fmt);
   charp = buff;
   do_printf(fmt, arg);
-  handle_char(NULL);
+  handle_char('\0');
   return charp - buff - 1;
 }
 
-/*
-unsigned long far retcs(int i)
-{
-    char *p = (char*)&i;
-    
-    p -= 4;
-    return *(unsigned long *)p;
-}
-*/
-int do_printf(const char * fmt, va_list arg)
+static void do_printf(const char * fmt, va_list arg)
 {
   int base;
   char s[11], far * p;
-  int c, flag, size, fill;
-  int longarg;
-  long currentArg;
+  int size;
+  unsigned char flags;
 
-/*  
-  long cs = retcs(1);
-  put_console("0123456789ABCDEF"[(cs >> 28) & 0x0f]);
-  put_console("0123456789ABCDEF"[(cs >> 24) & 0x0f]);
-  put_console("0123456789ABCDEF"[(cs >> 20) & 0x0f]);
-  put_console("0123456789ABCDEF"[(cs >> 16) & 0x0f]);
-  put_console(':');
-  put_console("0123456789ABCDEF"[(cs >> 12) & 0x0f]);
-  put_console("0123456789ABCDEF"[(cs >>  8) & 0x0f]);
-  put_console("0123456789ABCDEF"[(cs >>  4) & 0x0f]);
-  put_console("0123456789ABCDEF"[(cs >>  0) & 0x0f]);
-*/
-  while ((c = *fmt++) != '\0')
+  for (;*fmt != '\0'; fmt++)
   {
-    if (c != '%')
+    if (*fmt != '%')
     {
-      handle_char(c);
+      handle_char(*fmt);
       continue;
     }
 
-    longarg = FALSE;
-    size = 0;
-    flag = RIGHT;
-    fill = ' ';
+    fmt++;
+    flags = RIGHT;
 
     if (*fmt == '-')
     {
-      flag = LEFT;
+      flags = LEFT;
       fmt++;
     }
 
     if (*fmt == '0')
     {
-      fill = '0';
+      flags |= ZEROSFILL;
       fmt++;
     }
 
-    while (*fmt >= '0' && *fmt <= '9')
+    size = 0;
+    while (1)
     {
-      size = size * 10 + (*fmt++ - '0');
+      unsigned c = (unsigned char)(*fmt - '0');
+      if (c > 9)
+        break;
+      fmt++;
+      size = size * 10 + c;
     }
 
     if (*fmt == 'l')
     {
-      longarg = TRUE;
+      flags |= LONGARG;
       fmt++;
     }
 
-    c = *fmt++;
-    switch (c)
+    switch (*fmt)
     {
       case '\0':
-        return 0;
+        va_end(arg);
+        return;
 
-      case 'c':  
+      case 'c':
         handle_char(va_arg(arg, int));
         continue;
 
       case 'p':
         {
-          unsigned short w0 = va_arg(arg, unsigned short);
+          unsigned w0 = va_arg(arg, unsigned);
           char *tmp = charp;
-          sprintf(s, "%04x:%04x", va_arg(arg, unsigned short), w0);
+          sprintf(s, "%04x:%04x", va_arg(arg, unsigned), w0);
           p = s;
           charp = tmp;
-          goto do_outputstring;
+          break;
         }
 
       case 's':
         p = va_arg(arg, char *);
-        goto do_outputstring;
+        break;
 
       case 'F':
         fmt++;
         /* we assume %Fs here */
       case 'S':
         p = va_arg(arg, char far *);
-        goto do_outputstring;
+        break;
 
       case 'i':
       case 'd':
@@ -284,42 +227,49 @@ int do_printf(const char * fmt, va_list arg)
       case 'x':
         base = 16;
 
-      lprt:
-        if (longarg)
-          currentArg = va_arg(arg, long);
-        else
-          currentArg = base < 0 ? (long)va_arg(arg, int) :
-              (long)va_arg(arg, unsigned int);
-        ltob(currentArg, s, base);
-
-        p = s;
-      do_outputstring:
-
-        size -= fstrlen(p);
-
-        if (flag == RIGHT)
+    lprt:
         {
-          for (; size > 0; size--)
-            handle_char(fill);
+          long currentArg;
+          if (flags & LONGARG)
+            currentArg = va_arg(arg, long);
+          else
+          {
+            currentArg = va_arg(arg, int);
+            if (base >= 0)
+              currentArg =  (long)(unsigned)currentArg;
+          }
+          ltoa(currentArg, s, base);
+          p = s;
         }
-        for (; *p != '\0'; p++)
-          handle_char(*p);
-
-        for (; size > 0; size--)
-          handle_char(fill);
-
-        continue;
+        break;
 
       default:
         handle_char('?');
 
-        handle_char(c);
-        break;
+        handle_char(*fmt);
+        continue;
 
     }
+    {
+      size_t i = 0;
+      while(p[i]) i++;
+      size -= i;
+    }
+
+    if (flags & RIGHT)
+    {
+      int ch = ' ';
+      if (flags & ZEROSFILL) ch = '0';
+      for (; size > 0; size--)
+        handle_char(ch);
+    }
+    for (; *p != '\0'; p++)
+      handle_char(*p);
+
+    for (; size > 0; size--)
+      handle_char(' ');
   }
   va_end(arg);
-  return 0;
 }
 
 #ifdef TEST
@@ -334,10 +284,12 @@ int do_printf(const char * fmt, va_list arg)
 	and run. if strings are wrong, the program will wait for the ANYKEY
 
 */
-#include <conio.h>
+#include <stdio.h>
+#include <string.h>
+
 void cso(char c)
 {
-  putch(c);
+  putchar(c);
 }
 
 struct {
@@ -378,7 +330,7 @@ struct {
   {
   "1   ", "%-4x", 1, 0},
   {
-  "1000", "%-04x", 1, 0},
+  "1   ", "%-04x", 1, 0},
   {
   "1", "%ld", 1, 0},
   {
@@ -398,7 +350,7 @@ struct {
   {
   "1   ", "%-4lx", 1, 0},
   {
-  "1000", "%-04lx", 1, 0},
+  "1   ", "%-04lx", 1, 0},
   {
   "-2147483648", "%ld", 0, 0x8000},
   {
@@ -410,9 +362,9 @@ struct {
   {
   "32767", "%ld", 0x7fff, 0},
   {
-"ptr 1234:5678", "ptr %p", 0x5678, 0x1234}, 0};
+"ptr 1234:5678", "ptr %p", 0x5678, 0x1234}, {0}};
 
-test(char *should, char *format, unsigned lowint, unsigned highint)
+void test(char *should, char *format, unsigned lowint, unsigned highint)
 {
   char b[100];
 
@@ -422,12 +374,12 @@ test(char *should, char *format, unsigned lowint, unsigned highint)
 
   if (strcmp(b, should))
   {
-    printf("\nhit the ANYKEY\n");
-    getch();
+    printf("\nhit ENTER\n");
+    getchar();
   }
 }
 
-main()
+int main(void)
 {
   int i;
   printf("hello world\n");
@@ -437,6 +389,7 @@ main()
     test(testarray[i].should, testarray[i].format, testarray[i].lowint,
          testarray[i].highint);
   }
+  return 0;
 }
 #endif
 
