@@ -9,6 +9,7 @@ extern "C" {
 #define DIR_CHAR '/'
 #else
 #define DIR_CHAR '\\'
+#define ALT_DIR_CHAR '/'
 #endif
 
 #define MAXPATH 260

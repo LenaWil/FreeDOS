@@ -7,5 +7,4 @@ inst_t
 set_install (const char *diskset, char *fromdir, char *destdir);
 
 inst_t
-disk_install(const char *datfile, const char *descfile,
-	     char *fromdir, char *destdir);
+disk_install(const char *datfile, char *fromdir, char *destdir);

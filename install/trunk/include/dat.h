@@ -24,7 +24,7 @@
 
 #include <stdlib.h>   /* FILE * */
 
-#define DAT_NAME_LEN 260	/* no less than MAXFILE in <dir.h> */
+#define DAT_NAME_LEN 80	/* no less than MAXFILE in <dir.h> */
 
 typedef struct {
   char name[DAT_NAME_LEN];		/* base filename */
@@ -33,9 +33,9 @@ typedef struct {
 
 /* Functions */
 
-int
-dat_fread (FILE *stream, dat_t *dat_ary, int dat_size);
-int
-dat_read (const char *filename, dat_t *dat_ary, int dat_size);
+dat_t *
+dat_fread (FILE *stream, int *dat_count);
+dat_t *
+dat_read (const char *filename, int *dat_count);
 
 #endif /* _DAT_H */
