@@ -1,0 +1,61 @@
+How to compile the FreeDOS Install program:
+
+Copyright (C) 1998-1999 Jim Hall, <jhall1@isd.net>
+
+
+** Things you will need to compile the FreeDOS Install program:
+
+   - Info-Unzip source code
+   - Cats library (supports UNIX-like catopen/catgets)
+
+______________________________________________________________________
+
+TO COMPILE THE INSTALL PROGRAM:
+
+0. Compile the cats.lib library for your system.
+
+1. Unzip the sources (you've already done that if you are reading this
+   file)
+
+2. Compile the Info-Unzip library.  This is needed to compile and link
+   the FreeDOS Install program.
+
+   If you are using DOS and the Borland C Compiler 3.1 (or
+   compatible), use the `Makefile.bc' in `LIB\UNZIP\MSDOS'
+
+   If you are using a different platform, use the Makefile provided
+   in the Info-Unzip sources to create the library.  (This works great
+   under Linux.)
+
+3. Go to the root of the source tree (the one that has the `DOC' and
+   `SRC' and `LIB' directories in it)
+
+4. Check the Makefile to make sure the path to the Info-Unzip library
+   is correct.  For DOS, you will want to edit the file
+   `SRC\MAKEFILE.BC'.
+
+5. Compile the Install program.  If you are using DOS and the Borland
+   C Compiler 3.1 (or compatible), type:
+
+   make -f makefile.bc
+
+
+   If you are using UNIX, type:
+
+   make
+
+
+6. You are done!
+
+______________________________________________________________________
+
+TO USE THE INSTALL PROGRAM:
+
+Copy the `INSTALL.EXE', `INSTALL.DAT', and all the `.TXT' files to
+where you will run the Install program.  Usually, this will be a boot
+floppy.
+
+For international support, also copy the files from nls/ to the
+directory indicated by your NLSPATH env variable.  Your LANG env
+variable should contain your language code.  (Could this contain an
+easter egg?)

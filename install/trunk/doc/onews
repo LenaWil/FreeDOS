@@ -1,0 +1,42 @@
+Changes to the Free-DOS Install program:
+
+Copyright (C) James Hall <jhall1@isd.net>
+
+3.0 (VER_3_0) - adds a curses-style interface.
+
+2.2 (VER_2_2) - Added support for LSM files.  Also generally cleaned
+up the code.  Removed the "Extractor List" functionality, since we are
+all using zip files now.  The INSTALL.TXT has been replaced with
+individual series.TXT files.  All .TXT files are plain text files.
+
+2.1 (VER_2_1) added support for Debian description files
+
+2.0 (VER_2_0) - Incorporates the Unzip code into the source tree, so I
+don't need to use system().  Note that the Unzip code IS NOT INCLUDED
+in this source tree - you need to download it separately and compile
+UNZIP.LIB using the LIB\UNZIP\MSDOS\MAKEFILE.BC file (for Borland C.)
+Also added support for Red Hat Package Header files (.rph files) to
+print the description.
+
+1.2.1 (VER_1_2_1) - Added the proper files to support the FreeDOS
+"Orlando" distribution.
+
+1.2 (VER_1_2) - If the install program gets a fatal error (can't find
+UNZIP) then it will quit immediately with a message to that effect.
+Also will display an OEM.TXT file at the beginning.  Checks return
+codes for the system() function call on unzip.  Counts non-fatal
+errors, and report them at the end.  Checks for next disk number file
+before it looks for the Endfile.
+
+1.1 (VER_1_1) - Fixed a bug where entries from the TXT file are not
+printed if the case does not match.
+
+1.0 (VER_1_0) - First release of the Install program.  Uses a call to
+system() to extract the packages using 'unzip'.  Requires that the
+install.exe program be in the same directory as install.txt and
+install.dat.
+
+
+Upcoming changes:
+
+4.0 - Will add better package management.

@@ -1,0 +1,10 @@
+This is the README for the FreeDOS Install program.
+
+Copyright (C) 1998-1999 Jim Hall, <jhall1@isd.net>
+
+The Install program is distributed under the terms of the GNU GPL (see
+the file COPYING for details.)  You may use the Install program for
+pretty much anything: commercial distributors may even use it as an
+installer for their own software.
+
+For installation instructions, see the INSTALL file.

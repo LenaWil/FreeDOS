@@ -1,0 +1,19 @@
+# this is a DOS makefile
+
+# targets:
+
+all:
+	cd lib
+	make -f makefile.bc $@
+	cd ..
+	cd src
+	make -f makefile.bc $@
+	cd ..
+
+clean:
+	cd lib
+	make -f makefile.bc $@
+	cd ..
+	cd src
+	make -f makefile.bc $@
+	cd ..

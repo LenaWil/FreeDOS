@@ -1,0 +1,72 @@
+Changes to the Free-DOS Install program:
+
+Copyright (C) James Hall <jhall@freedos.org>
+
+______________________________________________________________________
+
+3.62 - Maxime Vincent <max.vincent@skynet.be> has provided a fix to
+ the French language file, and a new NL (Dutch) file.
+
+3.61 - We've taken the FreeDOS install program out of CVS, since I now
+  do all the development on DOS (not under UNIX.)  In 3.61, Ilya
+  Vasilyev has provided a Russian translation.
+
+3.6 (VER_3_6) - A few changes made, the most notable being that I
+  removed the need for its own lib/conio library (under UNIX).  This
+  has been separated from the FreeDOS Install program, and is now its
+  own UNIX library called 'libconio'.  New install.fr translation.
+  Updated install.de file.
+
+3.5c (VER_3_5C) - New install.pt translation by Luiz Passarelli
+<luizp@sti.com.br>.  New install.it translation by Alessio Palma
+<kht@iol.it>
+
+3.5b (VER_3_5B) - New install.es file from Altair
+<aitor.sm@teleline.es>
+
+3.5a (VER_3_5A) - New install.de file from Karsten Hilbert
+<Karsten.Hilbert@gmx.net>
+
+3.5 (VER_3_5) - Adds international support using UNIX-like catopen/catgets.
+
+3.2b (VER_3_2B) - Used _makepath() instead of using sprintf() to build
+my paths by hand.  This is cleaner for Borland C.  This also fixes a
+bug for me where the install program would barf (under DOS) if you
+gave it a Dest Dir or Source Dir that contained a trailing backslash.
+_makepath() handles the trailing backslash just fine.
+
+3.2a (VER_3_2A) - Added a bar graph to inst.c. Fixes for building on
+FreeDOS.  Works great.
+
+3.141 (VER_3_141) - Version "pi".  Minor hack to clean up a forgotten
+curses refresh().  Removed it from DOS using '#ifdef'.
+
+3.14 (VER_3_14) - More cleanup for the UI.  I hope I'm making this
+easier to use.  Complaints about the interface and what the user is
+supposed to do next are my top two complaints.  Also made a hack so
+that tabs in TXT and LSM files are displayed as a row of blank space
+(tabs were being displayed as a small circle, which is ASCII 09h.)
+
+3.13 (VER_3_13) - Cleaned up the UI quite a bit, and made the error
+messages more clear.  Fixed a few bugs that were reported on
+http://www.freedos.org/bugs/
+
+3.12 - Where the program is expecting a y/n response, the
+program now only accepts 'y' or 'n', case insensitive.  This was done
+by adding getch_yn(), and calling it in place of getch() where needed.
+
+3.11 - Added code to set the background to blue and the
+foreground to white, and to re-set the console colors back to the
+user's default colors when the program ends.
+
+3.1 - Major code cleanup to the Install program.  Basically
+re-wrote the entire install.c file, and re-worked the sources to use
+conio instead of curses.  This should make for faster execution on
+DOS, at the expense of slower execution (due to conio emulation
+through curses) on UNIX.  Dropped the `thecurse' compatibility library
+(provided curses emulation through conio) because it is no longer
+needed.  Program now uses .LSM files only for the description files.
+If you want to use another format, write your own.  Standardized the
+printed strings so that it will be easier to migrate to MSGLIB for
+internationization.  Due to the significant changes in the source
+tree, I moved all development to a new CVS project.
