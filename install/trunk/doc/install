@@ -12,7 +12,7 @@ ______________________________________________________________________
 
 TO COMPILE THE INSTALL PROGRAM:
 
-0. Compile the cats.lib library for your system.
+0. Compile the Cats library for your system.
 
 1. Unzip the sources (you've already done that if you are reading this
    file)
