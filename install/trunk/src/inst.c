@@ -2,7 +2,7 @@
 
 /* Functions to install a disk series, or a package */
 
-/* Copyright (C) 1998 Jim Hall, jhall1@isd.net */
+/* Copyright (C) 1998,2000 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -22,23 +22,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>			/* for system(), free() */
-
-#ifdef unix
-#include "conio.h"			/* DOS Conio */
-#else /* dos */
 #include <conio.h>			/* DOS Conio */
-#endif /* unix */
 
-#ifdef unix
-#include <nl_types.h>			/* UNIX catopen, catgets */
-#else /* dos */
 #include "catgets.h"			/* DOS catopen, catgets */
-#endif
-
-#ifdef unix
-#include "makepath.h"			/* UNIX _makepath(), _splitpath() */
-#endif /* unix */
-
 #include "bargraph.h"			/* for bargraph() */
 #include "dat.h"			/* data file functions */
 #include "cat.h"			/* for cat() */
