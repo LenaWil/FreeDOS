@@ -7,10 +7,10 @@ ______________________________________________________________________
 This file lists the changes since the FreeDOS Install program was
 moved into CVS on SourceForge (see http://freedos.sourceforge.net):
 
-3.7.5 - changes by Jeremy Davis to fix bug introduced by previous
- changes: install.c and inst.c would indicate failure to allocate
- memory instead of correctly indicating error reading dat file.  Minor
- cleanup.
+3.7.5 (VER_3_7_5) - changes by Jeremy Davis to fix bug introduced by
+ previous changes: install.c and inst.c would indicate failure to
+ allocate memory instead of correctly indicating error reading dat
+ file.  Minor cleanup.
 
 3.7.4 (VER_3_7_4) - Jeremy Davis has again fixed more bugs and added
  extra patches.  Fixed in this release: minor changes to the NLS files
