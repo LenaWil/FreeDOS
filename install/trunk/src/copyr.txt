@@ -1,6 +1,6 @@
 
     Version 3.7
-    Copyright (C) 1998 - 2001 Jim Hall <jhall@freedos.org>
+    Copyright (C) 1998 - 2002 Jim Hall <jhall@freedos.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

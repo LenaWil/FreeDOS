@@ -26,7 +26,7 @@ int leftx, topy, rightx, bottomy;
 
 
 /********************************************************
- getbioskey from int24.c
+ getbioskey is in int24.c
 
  (C) 1990 Joel Spolsky, All Rights Reserved.
  
@@ -44,6 +44,8 @@ int leftx, topy, rightx, bottomy;
  ** DOS to do. This made the interrupt handler reenter DOS which
  ** is illegal.
  **/
+extern int getbioskey(void);
+/*
 int getbioskey(void)
 {
 	union REGS regs;
@@ -54,6 +56,7 @@ int getbioskey(void)
 	int86x (0x16, &regs, &regs, &segregs);
 	return regs.x.ax;
 }
+*/
 
 
 #ifdef __BORLANDC__ || __TURBOC__

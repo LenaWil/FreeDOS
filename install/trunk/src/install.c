@@ -16,7 +16,7 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define INSTALL_VERSION "3.7.5"
+#define INSTALL_VERSION "3.7.6"
 
 
 #include <stdio.h>
@@ -39,15 +39,20 @@
 #include "sel_list.h"               /* select_yn() */
 #include "pause.h"                  /* for pause() */
 #include "cdp.h"                    /* createdestpath() */
+#include "isfile.h"                 /* isfile() */
 #include "log.h"                    /* openlog(), log(), closelog() */
 #include "cchndlr.h"                /* SIGINT (ctrl-c) handler */
 
 #include "text.h"                   /* All strings displayed */
 
+/* FUNCTION PROTOTYPES from int24.c */
+void install_24(void);
+void uninstall_24(void);
 
 /* Functions */
 inst_t install_top (dat_t *dat_ary, int dat_count);
 void getLocalizedYesNo(void);
+void promptForSourceMedia(const char *checkFile);
 
 
 /* Globals local to this file only */
@@ -66,12 +71,21 @@ main (int argc, char **argv)
   int dat_count;                    /* size of the dat array */
   int i;
   int mono = 0;                     /* running on monochrome monitor */
+  int ism = 0;                      /* prompt to Insert Source Media? */
 
   dat_t *dat_ary;                   /* the dat file array */
   inst_t ret;                       /* no. of errors, warnings */
 
   struct text_info ti;              /* (borland) for gettextinfo */
+
+  char dat_file[260]="INSTALL.DAT"; /* The primary data file -- what install sets exist */
  
+
+  /* register our int24 handler (Abort/Retry/Fail) */
+  install_24();
+
+  /* register our SIGINT handler (Ctrl-C) */
+  registerSIGINTHandler();
 
   /* Open the language catalog */
   cat = catopen ("install", 0);
@@ -86,6 +100,8 @@ main (int argc, char **argv)
       nopauseflag = 1;
     else if (strcmpi(argv[i], "/nolog") == 0)
       wantlog = 0;
+    else if (strcmpi(argv[i], "/ism") == 0)
+      ism = 1;
     else if ( (strcmpi(argv[i], "/src") == 0) && (i+1 < argc))
     {
       fromdirflag = 1;
@@ -97,6 +113,11 @@ main (int argc, char **argv)
       destdirflag = 1;
       i++;
       strcpy(destdir+2, argv[i]);
+    }
+    else if ( (strcmpi(argv[i], "/df") == 0) && (i+1 < argc))
+    {
+      i++;
+      strcpy(dat_file, argv[i]);
     }
     else
     {
@@ -112,7 +133,7 @@ main (int argc, char **argv)
 
   /* Read dat file */
 
-  dat_ary = dat_read ("INSTALL.DAT", &dat_count);
+  dat_ary = dat_read (dat_file, &dat_count);
   if (dat_ary == NULL)
   {
     if (dat_count > 0)
@@ -129,9 +150,6 @@ main (int argc, char **argv)
 
   /* Get localized "Yes" and "No" strings */
   getLocalizedYesNo();
-
-  /* register our SIGINT handler (Ctrl-C) */
-  registerSIGINTHandler();
 
   /* Start the install */
 
@@ -182,11 +200,44 @@ main (int argc, char **argv)
   free (no);
   catclose (cat);
 
+  /* Prompt user to insert source media if requested */
+  if (ism)
+      promptForSourceMedia(argv[0]);  /* note: this assumes argv[0] contains exe, which may not always be true */
+
   /* restore original SIGINT handler */
   unregisterSIGINTHandler();
 
+  /* restore original int24 handler (Abort/Retry/Fail) */
+  uninstall_24();
+
   return (0);
 }
+
+
+void
+promptForSourceMedia(const char *checkFile)
+{
+  /* Check if source media (where checkFile is at) is still available */
+  if (!isfile(checkFile))
+  {
+    /* TODO: add to catalog and use catgets */
+    printf("\n");
+    printf("Please insert initial source media (1st Install Disk)\n");
+    printf("Press any key to continue.\n");
+    getkey();
+
+    while (!isfile(checkFile))
+    {
+      printf("\nUnable to find: %s\n", checkFile);
+      printf("Please insert initial source media (1st Install Disk)\n\n");
+      printf("Press any key to retry.\n");
+      getkey();
+    }
+
+    printf("\nThank you!\n\n");
+  }
+}
+
 
 inst_t
 install_top (dat_t *dat_ary, int dat_count)

@@ -12,7 +12,7 @@ LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
 SRC=install.c
 OBJ=install.obj
 
-SOURCES1=bargraph.c cat.c isfile.c inst.c pause.c cdp.c log.c
+SOURCES1=bargraph.c cat.c isfile.c inst.c pause.c cdp.c log.c int24.c
 SOURCES2=box.c getkey.c sel_list.c repaint.c unz.c globals.c cchndlr.c
 OBJECTS1=$(SOURCES1:.c=.obj)
 OBJECTS2=$(SOURCES2:.c=.obj)
