@@ -1,6 +1,6 @@
 /* $Id$ */
 
-/* Copyright (C) 1998 Jim Hall, jhall1@isd.net */
+/* Copyright (C) 1998,2000 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -20,13 +20,9 @@
 
 
 #include <stdio.h>
-
-#ifdef unix
-#include "conio.h"
-#else
 #include <conio.h>
-#endif /* unix */
 
+/* Symbolic constants */
 
 #define MAXLEN 80
 
@@ -78,13 +74,6 @@ cat_file (const char *filename, int y0, int maxlines)
  	      putch (s[i]);
  	    } /* switch ch */
 	} /* for i */
-
-      /* As a hack, we won't refresh the screen unless we really need to.
-	 So we'll refresh the screen with cputs, but not with putch */
-
-#ifdef unix /* hack added 12/27/99 jhall */
-      refresh();				/* curses */
-#endif
 
       nlines++;
     } /* while */
