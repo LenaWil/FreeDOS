@@ -16,7 +16,7 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define INSTALL_VERSION "3.7.5-unofficial"
+#define INSTALL_VERSION "3.7.5"
 
 
 #include <stdio.h>
