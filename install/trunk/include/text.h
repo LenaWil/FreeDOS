@@ -163,6 +163,8 @@
 #define MSG_INSTALLPKG_STR "Install this package?"
 #define MSG_YESTOALL 6
 #define MSG_YESTOALL_STR "Yes to All"
+#define MSG_CONTINUE 7
+#define MSG_CONTINUE_STR "Proceed with installation?"
 
 /* SET_PKG_GENERAL */
 #define MSG_INSTSERIES 2
@@ -187,6 +189,8 @@
 #define MSG_NEXTSERIESDISK2_STR "disk #1 of the next series in the drive now."
 #define MSG_INSERT1STDISK 12
 #define MSG_INSERT1STDISK_STR "Please insert disk #1 for disk set %s"
+#define MSG_NODISKSPC 13
+#define MSG_NODISKSPC_STR "ERROR! Not enough disk space for package."
 
 /* SET_PKG_NEED */
 /*

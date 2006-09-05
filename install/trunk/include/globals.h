@@ -38,6 +38,7 @@ extern nl_catd cat;			/* language catalog */
 extern char *yes;				/* localized versions of yes & no */
 extern char *no;
 extern int nopauseflag ;		/* 0=pause, 1=don't pause ie autoinstall */
+extern int mono;
 
 #ifdef __cplusplus
 }
