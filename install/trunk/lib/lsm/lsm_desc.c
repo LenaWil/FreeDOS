@@ -18,15 +18,20 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#ifdef __WATCOMC__
+#include <screen.h>
+#endif
 #include <stdio.h>
 #include <string.h>				/* for strncmp */
 #include <ctype.h>				/* for isspace */
 
+#ifndef __WATCOMC__
 #ifdef unix
 #include "conio.h"
 #else
 #include <conio.h>
 #endif /* unix */
+#endif
 
 #define STRLEN 80
 

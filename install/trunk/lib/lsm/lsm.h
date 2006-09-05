@@ -21,6 +21,9 @@
 #ifndef LSM_H
 #define LSM_H
 
+#ifdef __WATCOMC__
+#include "screen.h"
+#endif
 #include "lsm_desc.h"
 
 #endif /* LSM_H */

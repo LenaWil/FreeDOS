@@ -1,7 +1,7 @@
 # this is a DOS makefile
 
-CC=tcc
-CFLAGS=-c -ml -DNDEBUG
+CC=wcl
+CFLAGS=-c -ml -DNDEBUG -fo=.obj -bt=DOS -oasl -zq -i=../../include
 
 all: lsm_desc.obj
 
