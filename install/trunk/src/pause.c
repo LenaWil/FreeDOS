@@ -17,20 +17,35 @@
 */
 
 #include <stdio.h>
-#include <conio.h>			/* DOS conio */
+#ifdef __WATCOMC__
+#include <screen.h>
+#else
+#include <conio.h>
+#endif
+#include <string.h>
 #include "getkey.h"			/* call getkey() instead of getch() directly */
 
 #include "globals.h"	/* for cat - catalog id - and #include "catgets.h" */
-/* #include "catgets.h"			/* DOS catopen(), catgets() */
+/* #include "catgets.h"         * DOS catopen(), catgets() */
 #include "text.h"                   /* All strings displayed */
 #include "pause.h"			/* pause() prototype */
+#include "box.h"
 
 
 /* pauses execution with a pretty message */
 void pause(void)
 {
-  char *s = catgets (cat, SET_PROMPT_LOC, MSG_PRESSKEY, MSG_PRESSKEY_STR);
-  gotoxy (2, 25);
-  cputs (s);
+  char *s = catgets (cat, SET_PROMPT_LOC, MSG_PRESSKEY, MSG_PRESSKEY_STR),
+        screenbuf[512];
+  unsigned centre = 40 - (strlen(s) / 2);
+
+  gettext(centre, 20, centre + strlen(s) + 2, 23, screenbuf);
+  box(centre, 20, centre + strlen(s) + 1, 22);
+  gotoxy (centre + 1, 21);
+  textbackground(BLUE);
+  cputs (catgets (cat, SET_PROMPT_LOC, MSG_PRESSKEY, MSG_PRESSKEY_STR));
+  _setcursortype(_NOCURSOR);
   if (!nopauseflag) getkey();
+  _setcursortype(_NORMALCURSOR);
+  puttext(centre, 20, centre + strlen(s) + 2, 23, screenbuf);
 }

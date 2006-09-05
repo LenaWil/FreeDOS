@@ -23,8 +23,11 @@
  of the programmer to ensure that the box does not exceed the screen
  boundaries. */
 
-
+#ifdef __WATCOMC__
+#include <screen.h>
+#else
 #include <conio.h>
+#endif
 
 
 /* Symbolic names for drawing a box */
@@ -46,6 +49,8 @@ box (int x0, int y0, int x1, int y1)
   int i, j;
 
   /* Draw top corners and border */
+  textbackground(BLUE);
+  textcolor(CYAN);
 
   gotoxy (x0, y0);
   putch (ACS_ULCORNER);
@@ -64,13 +69,25 @@ box (int x0, int y0, int x1, int y1)
       gotoxy (x0, i);
       putch (ACS_VLINE);
 
+      textbackground(BLUE);
       for (j = x0+1; j < x1; j++)
 	{
 	  putch (' ');
 	}
+      textbackground(BLUE);
 
       putch (ACS_VLINE);
     }
+
+  textbackground(DARKGRAY);
+
+  if(x1 != 80 ) for (i = y0+1; i < y1 + 1; i++)
+    {
+      gotoxy (x1 + 1, i);
+      putch (' ');
+    }
+
+  textbackground(BLUE);
 
   /* Draw bottom corner and border */
 
@@ -83,4 +100,22 @@ box (int x0, int y0, int x1, int y1)
     }
 
   putch (ACS_LRCORNER);
+
+  if (y1 < 25) {
+    gotoxy (x0 + 1, y1 + 1);
+    textbackground(DARKGRAY);
+
+    for (i = x0; i <= x1 - 2; i++)
+    {
+      putch (' ');
+    }
+    if(x1 != 80) {
+      putch(' ');
+      putch(' ');
+    } else clreol();
+  }
+
+  textbackground(BLUE);
+  textcolor(WHITE);
+  gotoxy (x1 - 1, y1);
 }

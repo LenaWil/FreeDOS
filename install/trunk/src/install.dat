@@ -1,5 +1,2 @@
 base: y
-edit: ?
-lang: ?
-source: ?
-util: ?
+test: n

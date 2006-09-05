@@ -20,7 +20,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>                 /* for system(), free() */
-#include <conio.h>                  /* DOS conio */
+#include <string.h>
+#ifdef __WATCOMC__
+#include <screen.h>
+#define fnmerge _makepath
+#else
+#include <conio.h>
+#endif
 
 #include "globals.h"                /* cat, yes, no, "catgets.h" */
 #include "bargraph.h"               /* for bargraph() */
@@ -38,6 +44,7 @@
 #include "text.h"                   /* All strings displayed */
 #include "log.h"                    /* for log() */
 #include "cchndlr.h"                /* for reregisterSIGINTHandler() */
+#include "list.h"
 
 
 
@@ -57,7 +64,7 @@ set_install (const char *diskset, char *fromdir, char *destdir)
 
   /* Create the filenames */
 
-  fnmerge (endfile, "", fromdir, diskset, "END");
+  fnmerge (endfile, "", fromdir, diskset, ".END");
 
   /* Print the name of the series we are working on */
 
@@ -81,10 +88,12 @@ set_install (const char *diskset, char *fromdir, char *destdir)
     /* First check that the datfile exists.  If it doesn't, check if
        the endfile was found. */
 
-    sprintf (ext, "%d", ++disknum);
+    sprintf (ext, ".%d", ++disknum);
     fnmerge (datfile, "", fromdir, diskset, ext);
+    log("<datfile name=\"%s\" >\n", datfile);
 
     if (!isfile (datfile)) {
+        log("<datfile name no exist=\"%s\" >\n", datfile);
       /* Does the endfile exist? */
 
       if (isfile (endfile)) {
@@ -203,6 +212,8 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
   }
 
   /* Run the install */
+  repaint_empty();
+  dat_ary = listbox(dat_ary, dat_count, fromdir);
 
   for (i = 0; i < dat_count; i++) {
     /* Print the screen and progress bargraph */
@@ -225,7 +236,7 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
 
     /* Generate the lsmfile name */
 
-    fnmerge (lsmfile, "", fromdir, dat_ary[i].name, "LSM");
+    fnmerge (lsmfile, "", fromdir, dat_ary[i].name, ".LSM");
 
     if (isfile (lsmfile))
     {
@@ -258,6 +269,8 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
       /* Always install */
 
       log("<package name=\"%s\" choice=\"y\" ", dat_ary[i].name);
+      textbackground(BLUE);
+      gotoxy(2, 23);
       s = catgets (cat, SET_PKG_NEED, MSG_REQUIRED, MSG_REQUIRED_STR);
       cputs (s);
 
@@ -265,10 +278,16 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
 
       reregisterSIGINTHandler(); /* unzip installs its own SIGINT handler */
 
-      if (ret != 0) {
+      if (ret != 0 && ret != 1) {
+        unsigned centre;
 	/* Print an error message */
 
-	s = catgets (cat, SET_PKG_GENERAL, MSG_ERRREQPKG, MSG_ERRREQPKG_STR);
+    s = (ret != 3) ?
+        catgets (cat, SET_PKG_GENERAL, MSG_ERRREQPKG, MSG_ERRREQPKG_STR) :
+        catgets (cat, SET_PKG_GENERAL, MSG_NODISKSPC, MSG_NODISKSPC_STR);
+    centre = (40 - (strlen(s) / 2));
+    box(centre, 12, centre + strlen(s) + 1, 14);
+    gotoxy(centre + 1, 13);
 	cputs (s);
       log(">\n");
       log("<error msg=\"%s\" />\n", s);
@@ -289,6 +308,7 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
           return (this);
 	  }
       }
+      else if (ret == 1) this.warnings++;
       else /* ret == 0, ie no errors */
         log("/>\n");
       break;
@@ -296,7 +316,9 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
     default:
       /* Optional */
 
+      textbackground(BLUE);
       s = catgets (cat, SET_PKG_NEED, MSG_OPTIONAL, MSG_OPTIONAL_STR);
+      gotoxy(2, 23);
       cputs (s);
 
       /* Ask the user if you want to install it */
@@ -319,10 +341,13 @@ disk_install(const char *datfile, char *fromdir, char *destdir)
 
 	  if (ret != 0)
 	    {
+          unsigned centre;
 	      /* Print a warning message */
 
-	      gotoxy (2, 13);
 	      s = catgets (cat, SET_PKG_GENERAL, MSG_WARNOPTPKG, MSG_WARNOPTPKG_STR);
+          centre = 40 - (strlen(s) / 2);
+          box(centre, 12, centre + strlen(s) + 1, 14);
+          gotoxy(centre + 1, 13);
 	      cputs (s);
             log(">\n");
             log("<warning msg=\"%s\" />\n", s);

@@ -65,6 +65,10 @@ interrupt handlers.
 #include <bios.h>
 #include <dos.h>
 #include <stdio.h>
+#include <stdlib.h>
+#ifdef __WATCOMC__
+#include <screen.h>
+#endif
 
 #define CRIT_ERROR_HANDLER (0x24)
 
@@ -80,10 +84,26 @@ int getbioskey(void);
 void interrupt (*oldvect)();			  
 unsigned scr;				/* The segment where the screen is */
 
+#ifdef __WATCOMC__
+#define getvect _dos_getvect
+#define setvect _dos_setvect
+#define pokeb POKEB
+#define peekb PEEKB
+#endif
+
 /** install_24
  **
  ** Installs the fancy interrupt handler.
  **/
+ 
+#ifdef __WATCOMC__
+unsigned getthis (void);
+#pragma aux getthis = \
+    "mov ah, 0Fh" \
+    "int 0x10" \
+    "mov ah, 0" \
+    value [ax] modify [ax];
+#endif
  
 void install_24(void)
 {
@@ -91,12 +111,16 @@ void install_24(void)
 	setvect(CRIT_ERROR_HANDLER, handle_24); /* and install ours */
 
 	/* Find out if the screen is at 0xB000 or 0xB800 */
+#ifdef __WATCOMC__
+    scr = (getthis() != 7) ? 0xB800 : 0xB000;
+#else
 	_AH = 0x0F;
 	geninterrupt (0x10);
 	if (_AL == 7)
 		scr = 0xB000;
 	else
 		scr = 0xB800;
+#endif
 }
 
 
@@ -217,11 +241,11 @@ fastprintz(int y, int x, int attr, char *s)
 int getbioskey(void)
 {
 	union REGS regs;
-	struct SREGS segregs;
+//	struct SREGS segregs;
 
-	segread(&segregs);
+//	segread(&segregs);
 	regs.h.ah = 0;
-	int86x (0x16, &regs, &regs, &segregs);
+	int86 (0x16, &regs, &regs);
 	return regs.x.ax;
 }
 

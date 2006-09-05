@@ -20,7 +20,11 @@
 
 
 #include <stdio.h>
+#ifdef __WATCOMC__
+#include <screen.h>
+#else
 #include <conio.h>
+#endif
 
 #include "bargraph.h"
 
@@ -48,10 +52,12 @@ bargraph (int num, int den, int width)
 
   /* Print n many filled boxes */
 
+  textcolor(LIGHTGRAY);
   for (i = 0; i < n; i++)
     {
       putch (GRAPH_BOX_FILLED);
     }
+  textcolor(WHITE);
 
   /* Now print width-n many empty boxes */
 

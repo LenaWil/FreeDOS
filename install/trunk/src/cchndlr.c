@@ -4,11 +4,19 @@
 
 #include <stdlib.h> /* exit(), malloc()      */
 #include <stdio.h>  /* fprintf()             */
+#ifdef PORTABLE
 #include <signal.h>
+#endif
 
 #include <bios.h>
 #include <dos.h>
-#include <conio.h>   /* gettext(), puttext() */
+#ifdef __WATCOMC__
+#include <screen.h>
+#define getvect _dos_getvect
+#define setvect _dos_setvect
+#else
+#include <conio.h>
+#endif
 #include <catgets.h> /* catgets()            */
 #include <string.h>  /* strlen(), strcpy()   */
 #include "box.h"     /* box()                */
@@ -19,11 +27,11 @@
 typedef void (*sighandler)(int sig);
 sighandler oldSIGINThandler = NULL;
 
+extern char *cwd;
 char *msgabort = NULL;
 char *msgverifyabort = NULL;
 char *saveblock = NULL;
 int leftx, topy, rightx, bottomy;
-
 
 /********************************************************
  getbioskey is in int24.c
@@ -45,6 +53,7 @@ int leftx, topy, rightx, bottomy;
  ** is illegal.
  **/
 extern int getbioskey(void);
+#if 0
 /*
 int getbioskey(void)
 {
@@ -57,9 +66,10 @@ int getbioskey(void)
 	return regs.x.ax;
 }
 */
+#endif
 
 
-#ifdef __BORLANDC__ || __TURBOC__
+#if defined(__BORLANDC__) || defined(__TURBOC__)
 #pragma argsused
 #endif
 void ourSIGINThandler(int sig)
@@ -69,7 +79,7 @@ void ourSIGINThandler(int sig)
   if (saveblock != NULL)
   {
     /* save current region, then print prompt */
-    gettext(leftx, topy, rightx, bottomy, saveblock);
+    gettext(leftx, topy, rightx + 1, bottomy + 1, saveblock);
     box(leftx, topy, rightx, bottomy);
     gotoxy(leftx+2, topy+2);
     if (msgverifyabort != NULL)
@@ -78,13 +88,17 @@ void ourSIGINThandler(int sig)
       cprintf(MSG_SIGINTVERIFYABORT_STR);
 
     /* get either a 'y'es or 'n'o */
-    key_loop: do {
+    do {
       key=getbioskey() & 0x00FF;
       switch(key) {
         case 'n': case 'N': 
         {
-          puttext(leftx, topy, rightx, bottomy, saveblock);
+          puttext(leftx, topy, rightx + 1, bottomy + 1, saveblock);
+#ifndef PORTABLE
+          setvect(0x23, ourSIGINThandler);
+#else
           signal(SIGINT, ourSIGINThandler);
+#endif
           return;
         }
         case 'y': break;
@@ -96,11 +110,12 @@ void ourSIGINThandler(int sig)
   }
  
   clrscr();
-  fclose(NULL);  /* close all open files */
+  fcloseall();  /* close all open files */
   if (msgabort != NULL)
     fprintf(stderr, msgabort);
   else
     fprintf(stderr, MSG_SIGINTABORT_STR);
+  free(cwd);
   exit(255);
 }
 
@@ -125,7 +140,12 @@ void registerSIGINTHandler(void)
     rightx = 40 + (len+5)/2;
     topy = 10;
     bottomy = 14;
+#ifndef PORTABLE
+    oldSIGINThandler = getvect(0x23);
+    setvect(0x23, ourSIGINThandler);
+#else
     oldSIGINThandler = signal(SIGINT, ourSIGINThandler);
+#endif
   }
 }
 
@@ -135,7 +155,11 @@ void reregisterSIGINTHandler(void)
   if (oldSIGINThandler == NULL)
     registerSIGINTHandler();
   else
+#ifndef PORTABLE
+    setvect(0x23, ourSIGINThandler);
+#else
     signal(SIGINT, ourSIGINThandler);
+#endif
 }
 
 
@@ -143,7 +167,11 @@ void unregisterSIGINTHandler(void)
 {
   if (oldSIGINThandler != NULL)
   {
+#ifndef PORTABLE
+    setvect(0x23, oldSIGINThandler);
+#else
     signal(SIGINT, oldSIGINThandler);
+#endif
     oldSIGINThandler = NULL;
     if (msgabort) free(msgabort);
     if (msgverifyabort) free(msgverifyabort);

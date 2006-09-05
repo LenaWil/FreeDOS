@@ -3,10 +3,10 @@
 CATS=..\lib\cats
 UZPHOME=..\lib\unzip
 
-CC=bcc
-CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)\include
-LDFLAGS=
-LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\lib\catdb.lib
+CC=tcc
+CFLAGS=-ml -DNDEBUG -I..\include -I..\lib\lsm -I$(UZPHOME) -I$(CATS)
+LDFLAGS=-ml
+LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\catsdb.lib
 LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
 
 SRC=install.c
@@ -14,13 +14,15 @@ OBJ=install.obj
 
 SOURCES1=bargraph.c cat.c isfile.c inst.c pause.c cdp.c log.c int24.c
 SOURCES2=box.c getkey.c sel_list.c repaint.c unz.c globals.c cchndlr.c
-OBJECTS1=$(SOURCES1:.c=.obj)
-OBJECTS2=$(SOURCES2:.c=.obj)
+OBJECTS1=bargraph.obj cat.obj isfile.obj inst.obj pause.obj cdp.obj log.obj int24.obj
+OBJECTS2=box.obj getkey.obj sel_list.obj repaint.obj unz.obj globals.obj cchndlr.obj
 
+.c.obj:
+	$(CC) -c $(CFLAGS) $<
 
 # targets:
 
-all: install.exe cat_file.exe
+all: install.exe # cat_file.exe
 
 clean realclean:
 	del *.obj
@@ -40,12 +42,30 @@ cat_file.exe: cat.c
 	del cat.obj
 	del *.tmp
 
-install.exe: $(OBJ) $(OBJECTS1) $(OBJECTS2)
-	echo $(CFLAGS) > cflags.tmp
-	echo $(LDLIBS1) > ldlibs1.tmp
-	echo $(LDLIBS2) > ldlibs2.tmp
-	echo $(OBJECTS1) > objects1.tmp
-	echo $(OBJECTS2) > objects2.tmp
-	$(CC) @cflags.tmp $(OBJ) @ldlibs1.tmp @ldlibs2.tmp \
-		@objects1.tmp @objects2.tmp
-	del *.tmp
+inst.lib: $(OBJ) $(OBJECTS1) $(OBJECTS2)
+	@if exist inst.lib del inst.lib
+	tlib inst.lib +bargraph.obj
+	tlib inst.lib +cat.obj
+	tlib inst.lib +isfile.obj
+	tlib inst.lib +inst.obj
+	tlib inst.lib +pause.obj
+	tlib inst.lib +cdp.obj
+	tlib inst.lib +log.obj
+	tlib inst.lib +int24.obj
+	tlib inst.lib +box.obj
+	tlib inst.lib +getkey.obj
+	tlib inst.lib +sel_list.obj
+	tlib inst.lib +repaint.obj
+	tlib inst.lib +unz.obj
+	tlib inst.lib +globals.obj
+	tlib inst.lib +cchndlr.obj
+	tlib inst.lib +..\lib\dat.obj
+	tlib inst.lib +..\lib\lsm\lsm_desc.obj
+
+LDLIBS1=$(UZPHOME)\unzip.lib $(CATS)\catsdb.lib
+LDLIBS2=..\lib\dat.obj ..\lib\lsm\lsm_desc.obj
+OBJECTS1=bargraph.obj cat.obj isfile.obj inst.obj pause.obj cdp.obj log.obj int24.obj
+OBJECTS2=box.obj getkey.obj sel_list.obj repaint.obj unz.obj globals.obj cchndlr.obj
+install.exe: $(OBJ) $(OBJECTS1) $(OBJECTS2) inst.lib
+	$(CC) $(LDFLAGS) $(OBJ) $(UZPHOME)\unzip.lib $(CATS)\catsdb.lib inst.lib
+

@@ -17,6 +17,13 @@
 */
 
 #include <string.h> /* strchr() */
+#include <stdlib.h>
+#include <stdio.h>
+#ifdef __WATCOMC__
+#include <dos.h>
+#include <direct.h>
+#include <ctype.h>
+#endif
 #include "dir.h"    /* DIR_CHAR and mkdir() */
 
 #ifndef ALT_DIR_CHAR
@@ -41,6 +48,8 @@ void createdestpath(char *destdir)
 {
   char dirChar;
   char *p = STRCHR(destdir); /* search for 1st dir separator */
+  char envbuffer[MAXPATH+7];
+
   while (p)
   {
     dirChar = *p;
@@ -50,4 +59,15 @@ void createdestpath(char *destdir)
     p = STRCHR(p+1); /* look for next dir separator */
   }
   mkdir(destdir);    /* create last portion of dir if didn't end in slash */
+  if( (*p = destdir[strlen(destdir) - 1]) == dirChar ) *p = '\0';
+  sprintf (envbuffer, "DOSDIR=%s", destdir);
+#ifdef __WATCOMC__
+  if (destdir[1] == ':') {
+    unsigned total;
+    _dos_setdrive (tolower(destdir[0]) - 'a' + 1, &total);
+  }
+#else
+  if (destdir[1] == ':') setdisk (toupper(destdir[0]) - 'A');
+#endif
+  chdir (destdir);
 }

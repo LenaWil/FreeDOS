@@ -16,13 +16,17 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define INSTALL_VERSION "3.7.6"
+#define INSTALL_VERSION "3.7.6pl1"
 
-
+#ifdef __WATCOMC__
+#include <screen.h>
+#include <direct.h>
+#else
+#include <conio.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>                 /* for malloc */
 #include <string.h>                 /* for strcmp */
-#include <conio.h>                  /* DOS conio */
 
 #include "globals.h"			/* nl_catd cat language catalog */
                                     /* char *yes localized version  */
@@ -42,6 +46,9 @@
 #include "isfile.h"                 /* isfile() */
 #include "log.h"                    /* openlog(), log(), closelog() */
 #include "cchndlr.h"                /* SIGINT (ctrl-c) handler */
+#include "getkey.h"
+#include "box.h"
+#include "list.h"
 
 #include "text.h"                   /* All strings displayed */
 
@@ -58,9 +65,11 @@ void promptForSourceMedia(const char *checkFile);
 /* Globals local to this file only */
 char fromdir[MAXDIR];               /* path to install from */
 char destdir[MAXDIR];               /* path to install to */
+char *cwd;
 int fromdirflag = 0;                /* 0=prompt user,    */
 int destdirflag = 0;                /* 1=on command line */
 int wantlog = 1;                    /* user wants to log activity */
+int mono = 0;
 
 
 /* program starts here */
@@ -70,7 +79,6 @@ main (int argc, char **argv)
 {
   int dat_count;                    /* size of the dat array */
   int i;
-  int mono = 0;                     /* running on monochrome monitor */
   int ism = 0;                      /* prompt to Insert Source Media? */
 
   dat_t *dat_ary;                   /* the dat file array */
@@ -80,6 +88,11 @@ main (int argc, char **argv)
 
   char dat_file[260]="INSTALL.DAT"; /* The primary data file -- what install sets exist */
  
+#ifdef __WATCOMC__
+  ScrOpen();    /* initialize conio library */
+#endif
+
+  cwd = getcwd(NULL, 0);
 
   /* register our int24 handler (Abort/Retry/Fail) */
   install_24();
@@ -122,6 +135,7 @@ main (int argc, char **argv)
     else
     {
       fprintf (stderr, catgets (cat, SET_USAGE, MSG_USAGE, MSG_USAGE_STR));
+      free(cwd);
       exit (1);
     }
   }
@@ -139,11 +153,13 @@ main (int argc, char **argv)
     if (dat_count > 0)
     {
       fprintf (stderr, catgets (cat, SET_ERRORS, MSG_ERRALLOCMEMDF, MSG_ERRALLOCMEMDF_STR));
+      free(cwd);
       exit (2);
     }
     else /* Either error reading file, eg no file, or file has no entries */
     {
       fprintf (stderr, catgets (cat, SET_ERRORS, MSG_ERREMPTYDATAFILE, MSG_ERREMPTYDATAFILE_STR));
+      free(cwd);
       exit (3);
     }
   }
@@ -210,6 +226,10 @@ main (int argc, char **argv)
   /* restore original int24 handler (Abort/Retry/Fail) */
   uninstall_24();
 
+  #ifdef __WATCOMC__
+  ScrClose();
+  #endif
+  free(cwd);
   return (0);
 }
 
@@ -238,6 +258,14 @@ promptForSourceMedia(const char *checkFile)
   }
 }
 
+void pushstring(char *string)
+{
+    while(*string) {
+        ungetch(*string);
+        *string++;
+    }
+}
+
 
 inst_t
 install_top (dat_t *dat_ary, int dat_count)
@@ -247,14 +275,14 @@ install_top (dat_t *dat_ary, int dat_count)
 
   char *s;                          /* used for retrieving localized text */
   char txtfile[MAXPATH];            /* name of text descr file */
-  int ch;
+  int ch = 0;
   int i;
   inst_t ret;                       /* return: no. of errors,warnings */
   inst_t this;                      /* no. of errors,warnings */
 
   /* Where to install from, to */
 
-  if (!fromdirflag || !destdirflag) /* only prompt if one or both are missing */
+  if ((!fromdirflag||!destdirflag)||(fromdirflag&&destdirflag)) /* prompt just to be sure */
   do {
 
     /* get directories from user */
@@ -265,37 +293,40 @@ install_top (dat_t *dat_ary, int dat_count)
     destdir[0] = MAXDIR;		/* max length of the string */
 
     s = catgets (cat, SET_PROMPT_LOC, MSG_INSTALLFROM, MSG_INSTALLFROM_STR);
-    gotoxy (5, 10);
+    box(5, 6, 75, 10);
+    gotoxy (6, 9);
+    textbackground(LIGHTGRAY);
+    for(i = 0; i < 69; i++) putch(' ');
+    gotoxy (6, 7);
+    textbackground(BLUE);
     cputs (s);
+    textbackground(LIGHTGRAY);
+    textcolor(BLUE);
 
-    gotoxy (5, 12);
+    gotoxy (6, 9);
     if (fromdirflag)
       cputs(&(fromdir[2]));
     else
       cgets (fromdir);
+    textcolor(WHITE);
 
     s = catgets (cat, SET_PROMPT_LOC, MSG_INSTALLTO, MSG_INSTALLTO_STR);
-    gotoxy (5, 16);
+    box(5, 14, 75, 18);
+    gotoxy (6, 17);
+    textbackground(LIGHTGRAY);
+    for(i = 0; i < 69; i++) putch(' ');
+    gotoxy (6, 15);
+    textbackground(BLUE);
     cputs (s);
+    textbackground(LIGHTGRAY);
       
-    gotoxy (5, 18);
-    if (destdirflag)
-      cputs(&(destdir[2]));
-    else
+    textcolor(BLUE);
+    gotoxy (6, 17);
+    if (destdirflag) pushstring(&destdir[2]);
       cgets (destdir);
+    textcolor(WHITE);
 
     /* let user verify */
-
-    repaint_empty();
-    gotoxy (5, 10);
-    cputs (catgets (cat, SET_PROMPT_LOC, MSG_WILLINSTALLFROM, MSG_WILLINSTALLFROM_STR));
-    gotoxy (5, 11);
-    cputs (&fromdir[2]);
-    gotoxy (5, 13);
-    cputs (catgets (cat, SET_PROMPT_LOC, MSG_WILLINSTALLTO, MSG_WILLINSTALLTO_STR));
-    gotoxy (5, 14);
-    cputs (&destdir[2]);
-      
     gotoxy (5, 16);
     s = catgets (cat, SET_PROMPT_LOC, MSG_INSTALLDIROK, MSG_INSTALLDIROK_STR);
     ch = select_yn (s, yes, no, NULL, NULL);
@@ -327,6 +358,8 @@ install_top (dat_t *dat_ary, int dat_count)
 
   /* Ask to install every disk set */
 
+  repaint_empty();
+#if 0
   log("<installsets>\n");
   for (i = 0; i < dat_count; i++)
     {
@@ -384,6 +417,8 @@ install_top (dat_t *dat_ary, int dat_count)
 	} /* switch rank */
     } /* for i */
   log("</installsets>\n\n");
+#endif
+  if(dat_count > 1) dat_ary = listbox(dat_ary, dat_count, cwd);
 
   /* Now install the selected disk sets */
 

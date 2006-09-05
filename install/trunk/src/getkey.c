@@ -19,8 +19,14 @@
 */
 
 
+#ifdef __WATCOMC__
+#include <screen.h>
+#else
 #include <conio.h>
+#endif
+#ifdef PORTABLE
 #include <signal.h> /* for raise() and SIGINT */
+#endif
 #include "getkey.h"
 
 /* getkey() will scan a key from the keyboard using getch().  If the
@@ -38,7 +44,11 @@ getkey (void)
 
   /* Check for ctrl-c and signal if pressed */
   if (ret.key == 3 && ret.extended == 0)
+#ifdef PORTABLE
      raise(SIGINT);
+#else
+    ourSIGINThandler(0);
+#endif
 
   return (ret);
 }

@@ -20,7 +20,13 @@
 #include <stdlib.h>                 /* getenv(), NULL */
 #include <stdio.h>
 #include <string.h>                 /* strcat(), strlen(), strcpy() */
+#ifdef __WATCOMC__
+#include <screen.h>
+#define strncmpi strnicmp
+#define fnmerge _makepath
+#else
 #include <conio.h>
+#endif
 #include "dir.h"                    /* DIR_CHAR == '\\' or '/' */
 
 #include "cat.h"

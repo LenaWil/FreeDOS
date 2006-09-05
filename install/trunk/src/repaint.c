@@ -20,7 +20,11 @@
 
 
 #include <stdio.h>
+#ifdef __WATCOMC__
+#include <screen.h>
+#else
 #include <conio.h>
+#endif
 
 #include "box.h"
 #include "globals.h"	/* for cat - catalog id - and #include "catgets.h" */
@@ -32,10 +36,13 @@ repaint_empty (void)
   char *s = catgets (cat, SET_GENERAL, MSG_TITLE, MSG_TITLE_STR);
 
   /* Clear the screen and repaint an empty screen for the installer */
+  if(!mono) textbackground(LIGHTGRAY);
   clrscr();
 
   gotoxy (2, 1);
+  textcolor(BLUE);
   cputs (s);
+  textcolor(WHITE);
 
   box (1, 2, 80, 24);
 }
