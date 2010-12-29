@@ -17,11 +17,11 @@ for %f in (append assign attrib chkdsk choice command comp country cpidos) do ec
 cd ..
 
 cd boot.dir
-for %f in (blackout bootmgr bootsplash grub4dos smbtmgr xosl) do echo %f > %f.zip
+for %f in (blackout bootmgr bootspl grub4dos smbtmgr xosl) do echo %f > %f.zip
 cd ..
 
 cd devel.dir
-for %f in (arrow-asm basec bin2c bwbasic cc386 clib dflat dmake fasm freebasic) do echo %f > %f.zip
+for %f in (arrow basec bin2c bwbasic cc386 clib dflat dmake fasm freebas) do echo %f > %f.zip
 cd ..
 
 cd edit.dir
@@ -37,11 +37,11 @@ for %f in (arachne code ertos fdsmtpop freexp leetirc lsicq lsppp lynx mime64) d
 cd ..
 
 cd sound.dir
-for %f in (abcmidi drtrack id3tools lame midiplay mpxplay normalize opencubic) do echo %f > %f.zip
+for %f in (abcmidi drtrack id3tools lame midiplay mpxplay normaliz opencub) do echo %f > %f.zip
 cd ..
 
 cd util.dir
-for %f in (4dos 7-zip arj bzip2 cabextract cal cdrcache c-lock cmos compinfo) do echo %f > %f.zip
+for %f in (4dos 7-zip arj bzip2 cabextr cal cdrcache c-lock cmos compinfo) do echo %f > %f.zip
 cd ..
 
 echo Done!
