@@ -1,2 +1,0 @@
-The essential DOS utilities, which reproduce the functionality
-of MS-DOS.
