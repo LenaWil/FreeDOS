@@ -158,12 +158,12 @@ main (int argc, char **argv)
   /* install everything? */
 
   _settextposition (10, 15);		/* relative to window */
-  yesno ("Do you want to install everything? (y/n)", yn, yes, no);
+  all = yesno ("Do you want to install everything? (y/n)", yn, yes, no);
 
   /* install source code? */
 
   _settextposition (12, 15);		/* relative to window */
-  yesno ("Do you want to install source code too? (y/n)", yn, yes, no);
+  src = yesno ("Do you want to install source code too? (y/n)", yn, yes, no);
 
   /* are you sure? */
 
