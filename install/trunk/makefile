@@ -1,6 +1,6 @@
 # simple makefile for compiling FreeDOS Install program
 
-CFLAGS=-mm -q -Idfp100s\source -DDEBUGGING
+CFLAGS=-ml -q
 LFLAGS=-q
 
 KITTENLIB=kitten\kitten.obj
