@@ -3,7 +3,7 @@
 # Assumes that you first downloaded & unzipped InfoZip's Unzip 5.52 in
 # the unzip552 directory, in the Install source tree.
 
-DEBUG=-DDEBUGGING
+#DEBUG=-DDEBUG
 
 CC=wcc
 CL=wcl
@@ -12,7 +12,7 @@ LFLAGS=-q
 
 UNZIP=unzip552
 
-OBJS=kitten.obj strchar.obj window.obj yesno.obj unz.obj
+OBJS=kitten.obj splitdir.obj strchar.obj window.obj yesno.obj unz.obj
 
 all: install.exe
 
