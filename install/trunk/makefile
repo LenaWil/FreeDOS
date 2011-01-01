@@ -8,7 +8,7 @@ CL=wcl
 CFLAGS=-ml -q
 LFLAGS=-q
 
-OBJS=kitten.obj strchar.obj window.obj yesno.obj
+OBJS=kitten.obj strchar.obj window.obj yesno.obj unz.obj
 
 all: install.exe
 
@@ -34,9 +34,6 @@ test: install.exe .symbolic
 
 distclean: realclean .symbolic
 	-del *.exe
-	cd kitten
-	-$(MAKE) distclean
-	cd ..
 
 realclean: clean .symbolic
 	-del *.obj
