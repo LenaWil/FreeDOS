@@ -1,2 +1,2 @@
 int
-unzip_file (const char *zipfile, const char *fromdir, char *destdir);
+unzip_file (char *zipfile, char *fromdir, char *destdir);
