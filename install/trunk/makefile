@@ -3,9 +3,11 @@
 # Assumes that you first downloaded & unzipped InfoZip's Unzip 5.52 in
 # the unzip552 directory, in the Install source tree.
 
+DEBUG=-DDEBUGGING
+
 CC=wcc
 CL=wcl
-CFLAGS=-ml -q
+CFLAGS=-ml -q $(DEBUG)
 LFLAGS=-q
 
 UNZIP=unzip552
