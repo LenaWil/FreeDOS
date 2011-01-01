@@ -304,7 +304,7 @@ install (char *fromdir, char *destdir, int all, int src)
       _settextposition (14, 15);		/* relative to window */
       cprintf ("%s            ", filelist[i].fname);
 
-#if defined(DEBUGGING)
+#ifdef DEBUGGING
       sleep (1);				/* fake the unzip */
 #else
       unzip_file (filelist[i].fname, fromdir, destdir);
