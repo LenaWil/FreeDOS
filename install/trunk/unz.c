@@ -50,14 +50,17 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
        buffer[MAXPATH],
        buffer2[MAXPATH];  /* path to a zipfile */
   int ret;
+
+#ifdef DISKFREE
   unsigned long pkgsize = 0L, dfree = 0L;
 #ifndef __WATCOMC__
   struct dfree freesp;
 #else
   struct diskfree_t freesp;
-#endif
+#endif /* __WATCOMC__ */
+#endif /* DISKFREE */
 
-  /* set 3=full_zipfile and 5=destdir */
+  /* default argv command (0-3) */
 
   char *argv[4] = {"unz.c", "-qq", "-o", "full_zipfile"};
 
@@ -66,9 +69,11 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
   fnsplit (zipfile, NULL, NULL, buffer2, NULL);
   fnmerge (full_zipfile, "", fromdir, zipfile, ".ZIP");
 
-  /* set 3=full_zipfile and 5=destdir */
+  /* set 3=full_zipfile */
+
   argv[3] = full_zipfile;    /* pointer assignment */
 
+#ifdef ZIPLIST
   sprintf(buffer,"%s%sPACKAGES",destdir,(destdir[strlen(destdir)-1]=='\\')?"":"\\");
   if(access(buffer, 0) != 0) {
       mkdir(buffer);
@@ -79,7 +84,9 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
 #endif
   }
   fnmerge (full_ziplist, "", buffer, buffer2, ".LST");
+#endif /* ZIPLIST */
 
+#ifdef DISKFREE
   /* TODO: add test if unzipped package will exceed free disk space */
 
 #ifdef __WATCOMC__
@@ -94,12 +101,9 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
   dfree -= 4096L; /* allow a little leeway */
 
   /* if (pkgsize > dfree) return 3; */
-
-  /* end: TODO */
+#endif /* DISKFREE */
 
   ret = UzpMain (4, argv);      /* the Unzip code */
-
-  fclose (pkglst);
 
   /* Done */
 
