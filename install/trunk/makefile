@@ -14,23 +14,8 @@ UNZIP=unzip552
 
 OBJS=kitten.obj splitdir.obj strchar.obj window.obj yesno.obj unz.obj
 
-all: install.exe
-
-install.exe: install.obj $(OBJS) unziplib
+install.exe: install.obj $(OBJS) $(UNZIP)\unzip.lib
 	$(CL) $(LFLAGS) install.obj $(OBJS) $(UNZIP)\unzip.lib
-
-unziplib: .symbolic
-	cd $(UNZIP)
-	$(MAKE)
-	cd ..
-
-# deps:
-
-.c.obj: .autodepend
-	$(CC) $(CFLAGS) $<
-
-kitten.obj: .symbolic
-	$(CC) $(CFLAGS) -Ikitten kitten\kitten.c
 
 test: install.exe .symbolic
 	cd t
@@ -38,6 +23,19 @@ test: install.exe .symbolic
 	..\install C:\TEST
 	deltree /y *.dir
 	cd ..
+
+# deps:
+
+.c.obj: .autodepend
+	$(CC) $(CFLAGS) $<
+
+$(UNZIP)\unzip.lib: .symbolic
+	cd $(UNZIP)
+	$(MAKE)
+	cd ..
+
+kitten.obj: .symbolic
+	$(CC) $(CFLAGS) -Ikitten kitten\kitten.c
 
 # cleanup:
 

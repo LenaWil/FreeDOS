@@ -29,7 +29,7 @@
   input: fulldir
   output: drive, dir
 
-  !! drive & dir need to be fully initialized strings
+  !! drive & dir need to be fully allocated strings
 */
 
 void

@@ -20,7 +20,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <dos.h>
 #include <string.h>
+
+#include "splitdir.h"
 
 int UzpMain( int argc, char **argv );	/* from InfoZip's Unzip */
 
@@ -29,42 +33,33 @@ unzip_file (char *zipfile, char *fromdir, char *destdir)
 {
   int i;
   int ret;
-  int uzp_argc = 6;
-  char *uzp_argv[6] = {"uzp", "-q", "-o", "?", "-d", "test"};
+  int uzp_argc = 4;
+  char *uzp_argv[] = {"UNZIP.EXE", "?", "-d", "test"};
 
-  /* just a simple wrapper to test things */
-
-  printf ("wrapper to Unzip\n");
+  char zdrive[_MAX_DRIVE];
+  char zdir[_MAX_DIR];
+  char full_zipfile[_MAX_PATH];
 
   /* show args */
 
-  uzp_argv[3] = "t\\hello.zip"; /* pointer assignment */
+  splitdir (fromdir, zdrive, zdir);
+  _makepath (full_zipfile, zdrive, zdir, zipfile, NULL);
 
+  uzp_argv[1] = full_zipfile;
+  uzp_argv[3] = destdir;
+
+  /* debugging */
+
+  printf ("\n");
   for (i = 0; i < uzp_argc; i++)
     {
-      printf ("uzp_argv[%d] = '%s'\n", i, uzp_argv[i]);
+      printf ("[%d]'%s'", i, uzp_argv[i]);
     }
 
   /* call unzip */
 
-  printf ("calling UzpMain ...\n");
-  ret = UzpMain (uzp_argc, uzp_argv);
-  printf ("... return = %d\n", ret);
+  /* ret = UzpMain (uzp_argc, uzp_argv); */
+  sleep (1);
 
   return (ret);
 }
-
-#ifdef DEBUG
-/* debugging code - creates a standalone test program */
-
-int
-main (int argc, char **argv)
-{
-  int ret;
-
-  printf ("unzipping hello.zip ...\n");
-  ret = unzip_file ("hello.zip", "t", "test");
-
-  exit (ret);
-}
-#endif

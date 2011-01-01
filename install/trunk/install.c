@@ -24,7 +24,7 @@
 
 #include <conio.h>			/* getch, .. */
 #include <direct.h>			/* getcwd, .. */
-#include <dos.h>			/* findfirst/findnext */
+#include <dos.h>			/* findfirst/findnext, sleep, .. */
 #include <graph.h>			/* _settextcolor, .. */
 #include <string.h>			/* strncpy, strchr .. */
 
@@ -51,10 +51,8 @@ typedef struct
   char *fname;
 } path_t;
 
-#define FNAME_STRLEN 13			/* FILENAME.EXTz = 13 */
 #define FILELIST_INCR 300
 
-#define STRLEN 128			/* default string length */
 #define DESTDIR "C:\\FDOS"		/* default install dir */
 
 /* main */
@@ -71,9 +69,9 @@ main (int argc, char **argv)
   int all = 0;
   int src = 0;
 
-  char cwd[STRLEN];
-  char fromdir[STRLEN];
-  char destdir[STRLEN];
+  char cwd[_MAX_PATH];
+  char fromdir[_MAX_PATH];
+  char destdir[_MAX_PATH];
 
   char yn[] = "YN";
   char yes[] = "YES";
@@ -96,7 +94,7 @@ main (int argc, char **argv)
       if (strchar (argv[i], '/') != -1)
 	{
 	  fprintf (stderr, "Option characters not allowed [%s]\n", argv[i]);
-	  usage ();
+	  install_usage ();
 	  exit (1);
 	}
     }
@@ -104,29 +102,29 @@ main (int argc, char **argv)
   if (argc > 3)
     {
       fprintf (stderr, "Too many arguments!\n");
-      usage ();
+      install_usage ();
       exit (1);
     }
 
   else if (argc == 3)
     {
       /* install {source} {dest} */
-      strncpy (fromdir, argv[1], STRLEN);
-      strncpy (destdir, argv[2], STRLEN);
+      strncpy (fromdir, argv[1], _MAX_PATH);
+      strncpy (destdir, argv[2], _MAX_PATH);
     }
 
   else if (argc == 2)
     {
       /* install {dest} */
-      strncpy (fromdir, cwd, STRLEN);
-      strncpy (destdir, argv[1], STRLEN);
+      strncpy (fromdir, cwd, _MAX_PATH);
+      strncpy (destdir, argv[1], _MAX_PATH);
     }
 
   else if (argc == 1)
     {
       /* install */
-      strncpy (fromdir, cwd, STRLEN);
-      strncpy (destdir, DESTDIR, STRLEN);
+      strncpy (fromdir, cwd, _MAX_PATH);
+      strncpy (destdir, DESTDIR, _MAX_PATH);
     }
 
   /* does fromdir exist? does dest drive exist? */
@@ -182,7 +180,8 @@ main (int argc, char **argv)
 
   progressbar (1, 1);
   statusbar ("Done!");
-  sleep (1);
+  /* sleep (1); */
+  getch ();
 
   /* close language catalog */
 
@@ -225,6 +224,8 @@ install (char *fromdir, char *destdir, int all, int src)
   char *dirlist[] = { "base.dir", "boot.dir", "devel.dir", "edit.dir", "gui.dir", "net.dir", "sound.dir", "util.dir" };
   int dirlist_count = 8;
 
+  char full_zipfile[_MAX_PATH];
+
   path_t *filelist;
   int filelist_size;
   int filelist_count;
@@ -262,7 +263,7 @@ install (char *fromdir, char *destdir, int all, int src)
         {
           /* allocate memory for strings */
 
-          if ( ! (filelist[filelist_count].fname = (char *) malloc (FNAME_STRLEN * sizeof (char))) )
+          if ( ! (filelist[filelist_count].fname = (char *) malloc (_MAX_NAME * sizeof (char))) )
 	    {
 	      install_abort ("fname malloc");
 	    }
@@ -270,7 +271,7 @@ install (char *fromdir, char *destdir, int all, int src)
           /* copy strings */
 
           filelist[filelist_count].dirnum = i;
-          strncpy (filelist[filelist_count].fname, ffblk.name, FNAME_STRLEN);
+          strncpy (filelist[filelist_count].fname, ffblk.name, _MAX_NAME);
           filelist_count++;
 
           /* check size */
@@ -301,17 +302,15 @@ install (char *fromdir, char *destdir, int all, int src)
     {
       progressbar (i, filelist_count);
 
-      _settextposition (14, 15);		/* relative to window */
+      _settextposition (10, 15);		/* relative to window */
       cprintf ("%s            ", filelist[i].fname);
 
-#ifdef DEBUGGING
-      sleep (1);				/* fake the unzip */
-#else
-      unzip_file (filelist[i].fname, fromdir, destdir);
-#endif
+      _makepath (full_zipfile, NULL, dirlist[ filelist[i].dirnum ], filelist[i].fname, NULL);
+
+      unzip_file (full_zipfile, fromdir, destdir);
     }
 
-  _settextposition (14, 15);			/* relative to window */
+  _settextposition (10, 15);			/* relative to window */
   cprintf ("            ");
 
 }
