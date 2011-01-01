@@ -33,7 +33,8 @@
 */
 
 void
-splitdir (char *fulldir, char *drive, char *dir){
+splitdir (char *fulldir, char *drive, char *dir)
+{
   if (fulldir[1] == ':')
     {
       /* fulldir has a drive component, looks like "C:\DIR" */
