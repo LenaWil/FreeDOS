@@ -8,12 +8,19 @@ CL=wcl
 CFLAGS=-ml -q
 LFLAGS=-q
 
+UNZIP=unzip552
+
 OBJS=kitten.obj strchar.obj window.obj yesno.obj unz.obj
 
 all: install.exe
 
-install.exe: install.obj $(OBJS)
-	$(CL) $(LFLAGS) install.obj $(OBJS)
+install.exe: install.obj $(OBJS) unziplib
+	$(CL) $(LFLAGS) install.obj $(OBJS) $(UNZIP)\unzip.lib
+
+unziplib: .symbolic
+	cd $(UNZIP)
+	$(MAKE)
+	cd ..
 
 # deps:
 
@@ -26,7 +33,7 @@ kitten.obj: .symbolic
 test: install.exe .symbolic
 	cd t
 	mktest
-	..\install
+	..\install C:\TEST
 	deltree *.dir
 	cd ..
 
@@ -34,6 +41,9 @@ test: install.exe .symbolic
 
 distclean: realclean .symbolic
 	-del *.exe
+	cd $(UNZIP)
+	$(MAKE) distclean
+	cd ..
 
 realclean: clean .symbolic
 	-del *.obj
