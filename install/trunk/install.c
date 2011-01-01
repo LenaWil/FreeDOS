@@ -29,14 +29,17 @@
 #include <string.h>			/* strncpy, strchr .. */
 
 #include "colors.h"
+
 #include "strchar.h"
 #include "window.h"
 #include "yesno.h"
+#include "unz.h"
 
 #include "kitten/kitten.h"
 
 /* function prototypes */
 
+void install_usage (void);
 void install (char *fromdir, char *destdir, int all, int src);
 void install_abort (char *message);
 
@@ -197,10 +200,10 @@ main (int argc, char **argv)
 }
 
 
-/* usage() */
+/* install_usage() */
 
 void
-usage (void)
+install_usage (void)
 {
   fprintf (stderr, "usage:\n");
   fprintf (stderr, "\tINSTALL\n");
@@ -301,7 +304,11 @@ install (char *fromdir, char *destdir, int all, int src)
       _settextposition (14, 15);		/* relative to window */
       cprintf ("%s            ", filelist[i].fname);
 
-      sleep (1);				/* just testing, fake the unzip */      
+#if defined(DEBUGGING)
+      sleep (1);				/* fake the unzip */
+#else
+      unzip_file (filelist[i].fname, fromdir, destdir);
+#endif
     }
 
   _settextposition (14, 15);			/* relative to window */
