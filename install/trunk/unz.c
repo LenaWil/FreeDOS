@@ -19,57 +19,28 @@
 */
 
 #ifdef __WATCOMC__
-#include <screen.h>
-#include <process.h>
-#define fnmerge _makepath
-#else
-#include <conio.h>
+# include <direct.h>
+# include <process.h>
+# define FA_HIDDEN _A_HIDDEN
+# define fnsplit _splitpath
+# define fnmerge _makepath
+# define MAXPATH _MAX_PATH
 #endif
-#include <stdio.h>			/* for system(), free() */
+
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include "unzip.h"			/* for UzpMain() */
-int UzpMain( int argc, char **argv );
-#include "dir.h"
-#include "log.h"
+
+int UzpMain( int argc, char **argv );	/* from InfoZip's Unzip */
+
 #include <fcntl.h>
 #include <dos.h>
 #include <sys/stat.h>
 #include <io.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#ifdef __WATCOMC__
-#define FA_HIDDEN _A_HIDDEN
-#define fnsplit _splitpath
-#endif
 
 static FILE *pkglst;
-
-/* returns the unextracted size of all files in package (actual size, does not include wasted space) */
-static unsigned long getUnexectractedPkgSize(unzFile uf)
-{
-  uLong i;
-  unz_global_info pglobal_info;
-  unz_file_info file_info;
-  unsigned long pkgSize = 0;
-  char curfilename[260];
-
-  if (unzGetGlobalInfo(uf, &pglobal_info) == UNZ_OK)
-    for (i = 0; i < pglobal_info.number_entry; i++)
-    {
-      if (unzGetCurrentFileInfo(uf, &file_info, curfilename, 260, NULL, 0,
-                                NULL, 0) != UNZ_OK)
-        return (pkgSize < 1)?1:pkgSize;
-
-      fprintf (pkglst, "%s\n", curfilename);
-      pkgSize += file_info.uncompressed_size;
-
-      if ((i+1) < pglobal_info.number_entry && unzGoToNextFile(uf) != UNZ_OK)
-          return (pkgSize < 1)?1:pkgSize;
-    }
-
-  return (pkgSize < 1)?1:pkgSize; /* 1 is to prevent divide by zero */
-}
 
 int
 unzip_file (const char *zipfile, const char *fromdir, char *destdir)
@@ -79,7 +50,6 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
        buffer[MAXPATH],
        buffer2[MAXPATH];  /* path to a zipfile */
   int ret;
-  unzFile uf;
   unsigned long pkgsize = 0L, dfree = 0L;
 #ifndef __WATCOMC__
   struct dfree freesp;
@@ -110,20 +80,7 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
   }
   fnmerge (full_ziplist, "", buffer, buffer2, ".LST");
 
-
-  log ("\n< full zipfile=\"%s\"/>\n", full_zipfile);
-  log ("< full ziplist=\"%s\"/>\n", full_ziplist);
-
-  pkglst = fopen (full_ziplist, "wt");
-  if (pkglst == NULL) return -2;
-
-  uf = unzOpen (full_zipfile);
-  if (uf == NULL) return -1;
-
-  pkgsize = getUnexectractedPkgSize(uf);
-
-  /* Set the cursor to location so errors can be read, not proper fix. */
-  gotoxy(2, 11);
+  /* TODO: add test if unzipped package will exceed free disk space */
 
 #ifdef __WATCOMC__
   _dos_getdiskfree (0, &freesp);
@@ -136,15 +93,11 @@ unzip_file (const char *zipfile, const char *fromdir, char *destdir)
   dfree *= freesp.bytes_per_sector;
   dfree -= 4096L; /* allow a little leeway */
 
-  log("<package size=\"%lu\"/>\n<disk free=\"%lu\"/>\n", pkgsize, dfree);
+  /* if (pkgsize > dfree) return 3; */
 
-  if (pkgsize > dfree) return 3;
-
-  unzClose (uf);
+  /* end: TODO */
 
   ret = UzpMain (4, argv);      /* the Unzip code */
-  gotoxy (2, 12);
-  if (ret < 0) log ("< spawn errno=\"%i\"/>\n", errno);
 
   fclose (pkglst);
 
