@@ -1,12 +1,12 @@
 @echo off
 
-echo MKTEST
-echo Generates *.DIR directories and *empty* *.ZIP files, to test the
-echo new Install program. To undo, delete the *.DIR directories and
-echo contents. NOTE THAT ANY EXISTING *.ZIP FILES MAY BE OVERWRITTEN!
+REM echo MKTEST
+REM echo Generates *.DIR directories and *empty* *.ZIP files, to test the
+REM echo new Install program. To undo, delete the *.DIR directories and
+REM echo contents. NOTE THAT ANY EXISTING *.ZIP FILES MAY BE OVERWRITTEN!
 
-choice Make test directories now?
-if ERRORLEVEL 2 goto :done
+REM choice Make test directories now?
+REM if ERRORLEVEL 2 goto :done
 
 echo Working ...
 

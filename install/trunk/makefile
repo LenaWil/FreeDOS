@@ -36,7 +36,7 @@ test: install.exe .symbolic
 	cd t
 	mktest
 	..\install C:\TEST
-	deltree *.dir
+	deltree /y *.dir
 	cd ..
 
 # cleanup:
