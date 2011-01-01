@@ -5,7 +5,7 @@ CFLAGS=-ml -q
 
 
 kitten.obj
-	wcc $(CFLAGS) kitten.c
+	$(CC) $(CFLAGS) kitten.c
 
 
 # cleanup:
