@@ -1,26 +1,20 @@
 # simple makefile for compiling kitten
 
+CC=wcc
+CFLAGS=-ml -q
 
-CFLAGS=-mm -q
 
+kitten.obj
+	wcc $(CFLAGS) kitten.c
 
-all: kitten.obj
-
-kitten.lib: kitten.obj
-	wlib kitten.lib kitten.obj
-
-# deps:
-
-.c.obj: .autodepend
-	wcc $(CFLAGS) $<
 
 # cleanup:
 
 distclean: realclean .symbolic
-	del *.lib
+	-del *.lib
 
 realclean: clean .symbolic
-	del *.obj
+	-del *.obj
 
 clean: .symbolic
-	del *.err
+	-del *.err
