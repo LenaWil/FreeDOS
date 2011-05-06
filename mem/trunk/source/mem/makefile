@@ -12,39 +12,39 @@
 #
 # for Watcom: make sure it's setup correctly
 
+!include "mkfiles\generic.mak"
 
-#FIXME: make a separate target MEMDBG.EXE with -DDEBUG
 #FIXME: don't commit this file with the modified flags to OpenWatcom
 #       to enable debugging symbols
 
-#for WATCOM
-#CC  = wcl
-#CFLAGS  = -c -j -wx -ms -oahls -s -d2
-#LFLAGS  = -fm -"option statics" -"debug all"
-#MEMSUPT =
-##for Turbo
-CC = tcc
-CFLAGS  = -f -c -w -ms -a- -k- -N- -d -O -O2
-LFLAGS  = -ms -M -l3
-MEMSUPT = memsupt.obj
+default: mem.exe
 
-all: mem.exe memtest.exe
+!include "mkfiles\nls.mak"
 
-# Watcom Make doesn't need quotes but Turbo Make does
-!include "nlsbin.mak"
+# MEMSUPT is set based on which compiler is selected in mkfiles\generic.mak
+MEM_OBJS=prf.obj kitten.obj $(MEMSUPT)
 
-mem.exe: mem.obj prf.obj kitten.obj $(MEMSUPT)
-    $(CC) $(LFLAGS) mem.obj prf.obj kitten.obj $(MEMSUPT)
-    upx --8086 --best mem.exe
+mem.exe: mem.obj $(MEM_OBJS)
+    $(CC) $(LFLAGS) mem.obj $(MEM_OBJS)
+    $(UPX) mem.exe
+
+memdbg.exe: memdbg.obj $(MEM_OBJS)
+    $(CC) $(LFLAGS) memdbg.obj $(MEM_OBJS)
+
+memdbg.obj: mem.c
+    $(CC) $(CFLAGS) -DDEBUG $(OBJOUT)memdbg.obj mem.c
 
 memtest.exe: memtest.obj
-    $(CC) $(LFLAGS) memtest.obj
+    $(CC) $(LFLAGS) $<
 
 .c.obj:
     $(CC) $(CFLAGS) $<
 
 .asm.obj:
     nasm -fobj $*.asm
+
+mem.zip: dist
+    makezip.bat
 
 clean:
     del *.obj
@@ -54,6 +54,9 @@ distclean: clean
     del mem.exe
     del memtest.exe
 
-dist: mem.exe
+dist: mem.exe ..\..\bin $(SYMBOLIC)
     copy mem.exe ..\..\bin
     del mem.exe
+
+..\..\bin:
+    mkdir ..\..\bin

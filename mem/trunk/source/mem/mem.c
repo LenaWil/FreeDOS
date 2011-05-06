@@ -65,22 +65,56 @@
       don't merge free blocks in the output anymore.
     * various small cleanups
 
-    MEM 1.6, April 2004
+    MEM 1.6, April 2004 (CVS revision 1.6)
     * minor output tweaks, don't upcase names anymore
     * try to detect UMB holes and don't count them as upper memory
     * display UMB holes as "reserved" in mem/f output
     * display version for "mem/?"
 
 
-    MEM 1.7 beta, FIXME:what date?, Bart Oldeman
-    FIXME: reverse-engineer changelog
+    MEM 1.7 beta, August 2004, Bart Oldeman (CVS revision 1.10)
+    * kittenize (support localization)
+    * Fix "UMB corruption" problem. As it turned out FreeCOM put the
+      environment just below the top of conv mem where it used to be
+      placed in an UMB.  That's not very nice in terms of memory
+      consumption, but MEM should work in either case.
+    * 64L -> 64 (optimization)
+    * avoid NULL derefs.
+    * Improved diagnostics (Eric Auer) Adjusted help.
+    * Correct NULL check for loop that check the last conv mem seg.
+    * update mem to 1.7beta and fix a bug when a free MCB looks like a
+      PSP.
 
-    MEM 1.8 (alpha 1), FIXME:what date?, David O'Shea
-    FIXME: reverse-engineer changelog
-    * make malloc() cause a fatal error if its buffer is full
+    Unreleased, September 2004, Bart Oldeman (CVS revision 1.11)
+    * Replace getenv() by our own (~1700 bytes uncompressed).
 
-    MEM 1.9a2 (alpha 2), FIXME:what date?, David O'Shea
-    FIXME: reverse-engineer changelog
+    MEM 1.8 (alpha 1), 29 August 2005, David O'Shea (doshea revision 26)
+    * make malloc() cause a fatal error if its buffer is full (this change
+      reverted later)
+    * include Interrupt Vector Table, BIOS Data Area and kernel areas for
+      which no MCBs exist in the output of the new /DEBUG command
+    * MINFO structure contains pointers to first and last DEVINFO
+      structures that describe devices in the memory block and each
+      DEVINFO contains a back-pointer to the MINFO of the memory
+      block it lies in
+    * provide details for STACKS, FILES, BUFFERS and LASTDRIVE blocks,
+      although the STACKS details will not work with FreeDOS
+    * show memory available via interrupt 15
+    * add /ALL command which shows how much HMA is free, HMAMIN, etc.;
+      HMAMIN is probed via a binary search of allocation/free attempts;
+      without /ALL we still show whether MS-DOS is managing the HMA
+    * add new /MODULE and /FREE commands which use new functions to take the
+      full MINFO list and return a new filtered copy and re-implement /U
+      this way
+    * support long command-line option names such as /CLASSIFY in place
+      of /C with shortest unique prefix matching
+    * add /H[ELP] command as a synonym for /?
+    * add /NOSUMMARY command to skip default output
+
+    MEM 1.9a2 (alpha 2), 18 November 2005, David O'Shea (doshea revision 43)
+    * add support for MUSCHI
+    * restore support for Turbo C compiler by adding get_ext_mem_size()
+      to MEMSUPT.ASM
     * replace minfo_typenames[] array and accesses to it with a function 
       containing a switch statement so we never have to pass a variable
       argument to the _() macro and hence so that MUSCHI works
@@ -101,15 +135,53 @@
       the parse to know that the option to debug it was specified, but
       you could add such a command-line option which, after parsing,
       causes flags to be reset to 0 and the parsing code to be
-      re-invoked with debugging enabled
+      re-invoked with debugging enabled; for now use #define
+      DEBUG_PARSER
     * change method of generation of the help output so that new flags
-      cannot be accidentally left undocumented in this output
+      cannot be accidentally left undocumented in this output: for each
+      entry in opts[] that corresponds to a unique flag, we either
+      display the help string for the flag as returned by
+      help_for_flag() or we show the name of the parameter with a note
+      that no help text is available
+    * version string in help output includes compile date/time, compiler
+      information and an indication of whether DEBUG was defined
+    * provide generic_split_list function to split MINFO list into two
+      parts (conventional and upper) which is used to show some of the
+      output split into these parts
+    * in case of MEM /MODULE <name> being specified and <name> not
+      existing in memory, we now return errorlevel 2 instead of 0;
+      note that all fatal errors result in errorlevel 1
+    * replace opt_flag_t enumeration with a set of #defines and a
+      'typedef unsigned long' so we can force it to be long and
+      #define masks/sets of flags
+    * get_opts(): add documentation; allow one or more colons to be
+      used in place of spaces between arguments; allow e.g.
+      /MODULE<name> or /M<name> with no space/colon in between
+    * provide /OLD option which causes /D to map to /DEVICE instead of
+      /DEBUG and /F to map to /FULL instead of /FREE, i.e. causes /D
+      and /F to take on their MEM 1.7 beta meanings instead of MS-DOS
+      meanings
+    * provide /SUMMARY option which always overrides /NOSUMMARY
+    * avoid producing no output when /NOSUMMARY specified by itself
+      or with /P
 
+    MEM 1.9a3 (alpha 3), 15 April 2006, David O'Shea
+    * kittenize "FILES=%u (%u in this block)" (4.12)
+    * support "SYSTEM" as argument to "/MODULE" which will include
+      everything we'd show under "/MODULE IO" and "/MODULE DOS"
+    * remove comment on MT_DEVICE that is outdated due to the use of a
+      tree data structure
+    * update MUSCHI compile method to avoid #including a .c file
+    * update changelog entries for MEM 1.7b onwards
+    * prevent /DEBUG and /FREE from showing empty tables when there is no
+      or no free upper memory respectively, instead they will explicitly
+      indicate that the specified type of memory is not installed/free;
+      kitten message 1.6 updated and 1.9 added
 */
 
 #define MEM_MAJOR 1
 #define MEM_MINOR 9
-#define MEM_VER_SUFFIX "a2"
+#define MEM_VER_SUFFIX "a3"
 
 /*  Be sure to compile with word alignment OFF !!! */
 #if defined(_MSC_VER)
@@ -179,14 +251,12 @@ typedef unsigned long ulong;
 #define MT_IVT     8 /* inferred - Interrupt Vector Table */
 #define MT_BDA     9 /* inferred - BIOS Data Area */
 #define MT_KERNEL  10 /* inferred - area between BIOS and first MCB */
-#define MT_DEVICE  11 /* values equal to or above this one are treated as
-		       * subordinate to other entries and are hence
-		       * indented by print_entry() */
+#define MT_DEVICE  11
 #define MT_DOSDATA 12
 #define MT_IFS     13
 
 #ifdef MUSCHI
-#include "muschi.c"
+#include "mem_nls.h"
 #define _(set,message_number,message) kittengets(set,message_number,muschi_ ## set ## _ ## message_number)
 #else
 #define _(set,message_number,message) kittengets(set,message_number,message)
@@ -302,6 +372,9 @@ typedef struct minfo
 #endif
     struct minfo *next;
     struct minfo *first_child;
+#if 0 /* presently unused */
+    struct minfo *caller;
+#endif
     struct devinfo *first_dev;
     struct devinfo *last_dev;
     print_minfo_field print_name;
@@ -899,6 +972,7 @@ char *getenv(const char *name)
  */
 int dbgdevaddr;
 int dbghmamin;
+int dbgcpu;
 #endif
 
 #define MALLOC_BUFFER_SIZE 30000
@@ -1058,7 +1132,7 @@ static EMSINFO *check_ems(void)
     
     int67=(char far *)getvect(0x67);
     if (int67 == NULL)
-        return ems;
+        return ems; /* NULL */
 
     int67 = MK_FP(FP_SEG(int67),10);
 
@@ -1067,7 +1141,7 @@ static EMSINFO *check_ems(void)
      * is true for both MS-DOS and FreeDOS EMM386.
      */
     if (!fnstreqn(int67, "EMMXXXX0", 8))
-	return ems;
+	return ems; /* NULL */
             
     ems = ems_static_pointer = &ems_static;
     /* no frame is not an error -- FD EMM386 has that for noems */
@@ -1166,7 +1240,17 @@ static XMSINFO *check_xms(void)
     xms = xms_static_pointer = &xms_static;
     total = 0;
     e820map.lenlow = 0;
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: is_386\n");
+    }
+#endif
     xms->is_386 = is_386();
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: 386: %s\n", xms->is_386 ? "yes" : "no");
+    }
+#endif
     if (xms->is_386) {
         /* yes: we have a 386! and can use ax=0xe820 for int15 */
         ulong counter = 0;
@@ -1178,8 +1262,19 @@ static XMSINFO *check_xms(void)
                 total += e820map.lenlow;
         } while (counter != 0); /* check to see if ebx is set to EOF  */
     }
+    
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: total=%lu, check_e801\n", total);
+    }
+#endif
     if (total == 0)
         total = check_e801();
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: total=%lu, check_8800\n", total);
+    }
+#endif
     if (total == 0) {
         total = check_8800();
 	if (total == 0)
@@ -1194,11 +1289,26 @@ static XMSINFO *check_xms(void)
     }
 
     xms->total=total;
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: xms_available\n");
+    }
+#endif
     if (xms_available() != XMS_AVAILABLE_RESULT)
         return xms;
 
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: get_xms_drv\n");
+    }
+#endif
     xms_drv = get_xms_drv();
 
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_xms: xms_version\n");
+    }
+#endif
     total = xms_version();
     xms->verminor=total & 0xff;
     xms->vermajor=(total >> 8) & 0xff;
@@ -1331,7 +1441,8 @@ static void print_minfo_type_files(MINFO *entry)
 {
     FILESINFO *specific = (FILESINFO *) entry->specific;
 
-    printf("FILES=%u (%u in this block)", files_total_count, specific->count);
+    printf("FILES=%u", files_total_count);
+    printf(_(4, 12, " (%u in this block)"), specific->count);
 }
 
 static void print_minfo_type_lastdrive(MINFO *entry)
@@ -1590,25 +1701,12 @@ static void register_dos_mcb(MINFO *mlist)
 static void program_mcb(MINFO *mlist)
 {
     MCB far *mcb;
-#if 0
-    PSP far *psp;
-#endif
 
     mlist->name = xmalloc(MCB_NAME_MAX_LEN + 1);
     mcb = MK_FP(mlist->seg, 0);
     check_name(mlist->name, mcb->name, MCB_NAME_MAX_LEN);
     mlist->environment=env_seg(mlist->seg);
     mlist->type=MT_PROGRAM;
-#if 0
-    /*
-     * This is test code.  At some point we should use the parent PID
-     * to provide a process tree if requested by the user via a (new)
-     * command-line option.
-     */
-    psp = MK_FP(mlist->seg + 1, 0);
-    printf("name=%8s,pid=%04X, ppid=%04X\n", mlist->name,
-	   mlist->seg + 1, psp->parent_pid);
-#endif
 }
 
 static void register_mcb(MINFO *mlist)
@@ -1635,6 +1733,8 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     MINFO *mlist;
     static MINFO *mlistroot = NULL;
     unsigned freemem;
+    ushort mlist_pid, find_pid;
+    PSP far *psp;
 
     if(mlistroot!=NULL)
 	return(mlistroot);
@@ -1701,14 +1801,31 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
 	    mlist->next->seg++;
 	}
         if (mlist->type == MT_PROGRAM) {
+	    mlist_pid = mlist->seg+1;
+	    psp = MK_FP(mlist_pid, 0);
+	    if (psp->parent_pid != 0 && psp->parent_pid != mlist_pid) {
+		/* this program has a parent program we should search for */
+		find_pid = psp->parent_pid;
+	    } else {
+		find_pid = 0;
+	    }
+
             for(mlistj=mlistroot;mlistj!=NULL;mlistj=mlistj->next) {
-                if ((mlist->seg != mlistj->seg)
-                    && (mlistj->owner == mlist->seg+1)) {
-                    mlistj->name = mlist->name;
-                    mlistj->type = MT_ENV;
-                    if (mlist->environment != mlistj->seg+1)
-                        mlistj->type = MT_DATA;
-                }
+                if (mlist->seg != mlistj->seg) {
+		    /* did mlist allocate mlistj? */
+		    if (mlistj->owner == mlist_pid) {
+			mlistj->name = mlist->name;
+			mlistj->type = MT_ENV;
+			if (mlist->environment != mlistj->seg+1)
+			    mlistj->type = MT_DATA;
+		    }
+#if 0 /* process list functionality not complete yet */
+		    /* did mlistj execute mlist? */
+		    if (mlistj->seg + 1 == find_pid) {
+			mlist->caller = mlistj;
+		    }
+#endif
+		}
             }
         }
 
@@ -2046,6 +2163,16 @@ int filter_by_module_name(MINFO *entry, void *data)
 }
 
 /*
+ * Filter for /MODULE SYSTEM
+ */
+int filter_system(MINFO *entry, void *data)
+{
+    return (entry->type == MT_SYSCODE ||
+	    entry->type == MT_SYSDATA ||
+	    entry->type == MT_KERNEL);
+}
+
+/*
  * Filter for /U
  */
 int filter_upper(MINFO *entry, void *data)
@@ -2211,8 +2338,25 @@ static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
     XMSINFO *xms;
     EMSINFO *ems;
 
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("check_ems\n");
+    }
+#endif
     ems=check_ems();
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("ems=0x%04X\n",ems);
+	printf("check_xms\n");
+    }
+#endif
     xms=check_xms();
+#ifdef DEBUG
+    if (dbgcpu) {
+	printf("xms=0x%04X\n",xms);
+	printf("biosmemory\n");
+    }
+#endif
     memory=biosmemory();
     memfree=round_seg_kb(memfree);
     memused=memory - memfree;
@@ -2571,11 +2715,14 @@ static void device_list(void)
  * passed the memory type (conventional or upper) and the function
  * used to print the footer is passed the MINFO list so it can
  * calculate a memory total for display in the footer.  A blank line
- * is inserted between memory types.
+ * is inserted between memory types.  If print_empty is supplied, it
+ * is called when one of the split lists is empty instead of any of
+ * the other functions.
  */
 static void generic_split_list(MINFO **split,
 			       print_header_t print_header,
 			       print_footer_t print_footer,
+			       print_header_t print_empty,
 			       print_minfo_t print_minfo,
 			       print_devinfo_t print_devinfo)
 {
@@ -2586,14 +2733,18 @@ static void generic_split_list(MINFO **split,
 	if (memory_type > memory_conv) { /* if not the first type */
 	    printf("\n");
 	}
-	if (print_header != NULL) {
-	    print_header(memory_type);
-	}
-	generic_list(split[memory_type], 0,
-		     print_minfo,
-		     print_devinfo);
-	if (print_footer != NULL) {
-	    print_footer(split[memory_type]);
+	if (split[memory_type] == NULL && print_empty != NULL) {
+	    print_empty(memory_type);
+	} else {
+	    if (print_header != NULL) {
+		print_header(memory_type);
+	    }
+	    generic_list(split[memory_type], 0,
+			 print_minfo,
+			 print_devinfo);
+	    if (print_footer != NULL) {
+		print_footer(split[memory_type]);
+	    }
 	}
     }
 }
@@ -2602,6 +2753,11 @@ static void print_full_header_with_type(memory_t memory_type)
 {
     printf(_(4, 10, "%s Memory Detail:\n"), memory_typename(memory_type));
     print_full_header();
+}
+
+static void print_full_empty(memory_t memory_type)
+{
+    printf(_(1, 9, "%s Memory is not accessible\n"), memory_typename(memory_type));
 }
 
 static void debug_list(void)
@@ -2613,7 +2769,7 @@ static void debug_list(void)
     (void) make_dev_list(ml);
 
     generic_split_list(split_mlist_conv_upper(ml),
-		       print_full_header_with_type, NULL,
+		       print_full_header_with_type, NULL, print_full_empty,
 		       print_minfo_full, print_devinfo_full);
 }
 
@@ -2882,16 +3038,27 @@ void module_list(char *module_name)
     /* ignore the return value, as we get the DEVINFO entries from mlisthead */
     (void) make_dev_list(mlisthead);
 
-    /*
-     * Filter the list to just the entries with the given name.
-     */
-    mlisthead = filter_mlist(mlisthead,
-			     FILTER_MLIST_EXPANDED |
-			     FILTER_MLIST_SEARCH_CHILDREN,
-			     filter_by_module_name, module_name);
+    if (strcmpi(module_name, "SYSTEM") == 0) {
+	/*
+	 * Filter the lis to entries related to the OS which we would
+	 * show as "IO" or "DOS" and show under "SYSTEM" in /CLASSIFY.
+	 */
+	mlisthead = filter_mlist(mlisthead,
+				 FILTER_MLIST_EXPANDED |
+				 FILTER_MLIST_SEARCH_CHILDREN,
+				 filter_system, NULL);
+    } else {
+	/*
+	 * Filter the list to just the entries with the given name.
+	 */
+	mlisthead = filter_mlist(mlisthead,
+				 FILTER_MLIST_EXPANDED |
+				 FILTER_MLIST_SEARCH_CHILDREN,
+				 filter_by_module_name, module_name);
+    }
+
     if (mlisthead == NULL) {
 	printf(_(1,7,"%s is not currently in memory.\n"), module_name);
-/* FIXME: document this errorlevel */
 	exit(2);
     }
 
@@ -2915,6 +3082,11 @@ static void print_free_header_with_type(memory_t memory_type)
     print_free_header();
 }
 
+static void print_free_empty(memory_t memory_type)
+{
+    printf(_(1, 6, "No %s Memory is free\n"), memory_typename(memory_type));
+}
+
 static void print_free_footer(MINFO *mlisthead)
 {
     print_full_footer(total_mem(mlisthead));
@@ -2934,10 +3106,6 @@ void free_list(void)
      */
     mlisthead = filter_mlist(mlisthead, FILTER_MLIST_NO_FLAGS,
 			     filter_free, NULL);
-    if (mlisthead == NULL) {
-	printf(_(1,6,"No memory is free\n"));
-	return;
-    }
 
     /*
      * Pass NULL for print_devinfo as we won't be printing any devices
@@ -2945,9 +3113,36 @@ void free_list(void)
      */
     generic_split_list(split_mlist_conv_upper(mlisthead),
 		       print_free_header_with_type,
-		       print_free_footer,
+		       print_free_footer, print_free_empty,
 		       print_minfo_free, NULL);
 }
+
+/*
+ * FIXME: add support for showing a process listing/tree using this function.
+ */
+#if 0
+void ps_list_from(MINFO *mlisthead, MINFO *root, unsigned int level)
+{
+    MINFO *mlist;
+    char pre_indent[MAX_INDENT_SIZE + 1 + 99/*FIXME*/];
+    char post_indent[MAX_INDENT_SIZE + 1 + 99/*FIXME*/];
+
+    indent_setup(pre_indent, post_indent, level);
+    for (mlist = mlisthead; mlist != NULL; mlist = mlist->next) {
+	if (mlist->type == MT_PROGRAM && mlist->caller == root) {
+	    printf("%s%s\n", pre_indent, mlist->name);
+	    ps_list_from(mlisthead, mlist, level + 1);
+	}
+    }
+}
+
+void ps_list(void)
+{
+    MINFO *mlisthead = make_mcb_list(NULL);
+
+    ps_list_from(mlisthead, NULL, 0);
+}
+#endif
 
 /* function to obtain the number of lines on the screen...added by brian reifsnyder.  */
 static uchar get_font_info(void)
@@ -2995,6 +3190,7 @@ int is_space_char(char c)
 #define F_OLD	     0x00010000UL
 #define F_F          0x00020000UL
 #define F_D          0x00040000UL
+#define F_DBGCPU     0x00080000UL
 
 typedef unsigned long opt_flag_t;
 
@@ -3358,41 +3554,41 @@ char *help_for_flag(opt_flag_t opt)
 {
     switch (opt) {
     case F_HELP:       return (_(7, 10,
-"/?          Displays this help message"));
+"/?           Displays this help message"));
     case F_DEVICE:     return (_(7, 6,
-"/DEVICE     List of device drivers currently in memory"));
+"/DEV[ICE]    List of device drivers currently in memory"));
     case F_EMS:        return (_(7, 3,
-"/E          Reports all information about Expanded Memory"));
+"/E[MS]       Reports all information about Expanded Memory"));
     case F_FULL:       return (_(7, 4,
-"/FULL       Full list of memory blocks"));
+"/FU[LL]      Full list of memory blocks"));
     case F_UPPER:      return (_(7, 7,
-"/U          List of programs in conventional and upper memory"));
+"/U           List of programs in conventional and upper memory"));
     case F_XMS:        return (_(7, 8,
-"/X          Reports all information about Extended Memory"));
+"/X[MS]       Reports all information about Extended Memory"));
     case F_PAGE:       return (_(7, 9,
-"/P          Pauses after each screenful of information"));
+"/P[AGE]      Pauses after each screenful of information"));
     case F_CLASSIFY:   return (_(7, 5,
-"/C          Classify modules using memory below 1 MB"));
+"/C[LASSIFY]  Classify modules using memory below 1 MB"));
     case F_DEBUG:      return (_(7, 11,
-"/DEBUG      Show programs and devices in conventional and upper memory"));
+"/DEB[UG]     Show programs and devices in conventional and upper memory"));
     case F_MODULE:     return (_(7, 12,
 "/M <name> | /MODULE <name>\n"
-"            Show memory used by the given program or driver"));
+"             Show memory used by the given program or driver"));
     case F_FREE:       return (_(7, 13,
-"/FREE       Show free conventional and upper memory blocks"));
+"/FR[EE]      Show free conventional and upper memory blocks"));
     case F_ALL:        return (_(7, 14,
-"/ALL        Show all details of high memory area (HMA)"));
+"/A[LL]       Show all details of high memory area (HMA)"));
     case F_NOSUMMARY:  return (_(7, 15,
-"/NOSUMMARY  Do not show the summary normally displayed when no other\n"
-"            options are specified"));
+"/N[OSUMMARY] Do not show the summary normally displayed when no other\n"
+"             options are specified"));
     case F_SUMMARY:    return (_(7, 16,
-"/SUMMARY    Negates the /NOSUMMARY option"));
+"/S[UMMARY]   Negates the /NOSUMMARY option"));
     case F_OLD:        return (_(7, 18,
-"/OLD        Compatability with FreeDOS MEM 1.7 beta"));
+"/O[LD]       Compatability with FreeDOS MEM 1.7 beta"));
     case F_D:          return (_(7, 19,
-"/D          Same as /DEBUG by default, same as /DEVICE if /OLD used"));
+"/D           Same as /DEBUG by default, same as /DEVICE if /OLD used"));
     case F_F:          return (_(7, 20,
-"/F          Same as /FREE by default, same as /FULL if /OLD used"));
+"/F           Same as /FREE by default, same as /FULL if /OLD used"));
     default:           return (NULL);
     }
 }
@@ -3467,6 +3663,7 @@ int main(int argc, char *argv[])
       { "CLASSIFY",	F_CLASSIFY,	NULL },
       { "D",		F_D,		NULL },
 #ifdef DEBUG
+      { "DBGCPU",       F_DBGCPU,       NULL },
       { "DBGDEVADDR",   F_DBGDEVADDR,   NULL },
       { "DBGHMAMIN",    F_DBGHMAMIN,    NULL },
 #endif
@@ -3506,6 +3703,7 @@ int main(int argc, char *argv[])
      * Set up global boolean flags used to enable debugging based on
      * the command-line options.
      */
+    dbgcpu = ((flags & F_DBGCPU) == F_DBGCPU);
     dbgdevaddr = ((flags & F_DBGDEVADDR) == F_DBGDEVADDR);
     dbghmamin = ((flags & F_DBGHMAMIN) == F_DBGHMAMIN);
 #endif

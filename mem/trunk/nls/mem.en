@@ -21,9 +21,10 @@
 1.3: (%7s bytes)\n
 1.4:Warning: device appears to be owned by multiple memory blocks (%s\nand %s)\n
 1.5:(no drv)
-1.6:No memory is free\n
+1.6:No %s Memory is free\n
 1.7:%s is not currently in memory.\n
 1.8:%s is using the following memory:\n
+1.9:%s Memory is not accessible\n
 # memory types
 2.0:Memory Type        Total       Used       Free\n
 #   ----------------  --------   --------   --------
@@ -84,6 +85,7 @@
 4.9:installed DEVICE=%s\n
 4.10:%s Memory Detail:\n
 4.11:Free %s Memory:\n
+4.12: (%u in this block)
 
 # EMS stuff
 5.0:EMS INTERNAL ERROR.\n

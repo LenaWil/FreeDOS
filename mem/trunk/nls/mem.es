@@ -33,11 +33,13 @@
 # FIXME: to be translated
 1.5:(no drv)
 # FIXME: to be translated
-1.6:No memory is free\n
+1.6:No %s Memory is free\n
 # FIXME: to be translated
 1.7:%s is not currently in memory.\n
 # FIXME: to be translated
 1.8:%s is using the following memory:\n
+# FIXME: to be translated
+1.9:%s Memory is not accessible\n
 # memory types
 2.0:Tipo de memoria    Total       Usado     Libre\n
 #   ----------------  --------   --------   --------
@@ -119,6 +121,8 @@
 4.10:%s Memory Detail:\n
 # FIXME: to be translated
 4.11:Free %s Memory:\n
+# FIXME: to be translated
+4.12: (%u in this block)
 # EMS stuff
 5.0:Error interno EMS.\n
 5.1: No hay controlador EMS en el sistema.\n
