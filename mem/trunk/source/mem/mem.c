@@ -73,7 +73,7 @@
 */
 
 #define MEM_MAJOR 1
-#define MEM_MINOR 7
+#define MEM_MINOR 8
 
 /*  Be sure to compile with word alignment OFF !!! */
 #if defined(_MSC_VER)
@@ -117,6 +117,17 @@ typedef unsigned long ulong;
 #define FALSE 0
 #define TRUE  1
 
+#define OEM_FREEDOS 0xFD
+
+/*
+ * Size of a page in conventional memory and in EMS.
+ */
+#define CONV_BYTES_PER_PAGE	16UL
+#define EMS_BYTES_PER_PAGE	16UL*1024UL
+
+#define BYTES_PER_KB		1024UL
+
+/* Types for MINFO.type */
 #define MT_NONE    0
 #define MT_FREE    1
 #define MT_SYSCODE 2
@@ -124,10 +135,34 @@ typedef unsigned long ulong;
 #define MT_PROGRAM 4
 #define MT_ENV     5
 #define MT_DATA    6
-#define MT_RESERVED 7
-#define MT_DEVICE  8
-#define MT_DOSDATA 9
-#define MT_IFS     10
+#define MT_RESERVED 7 /* check_upper() doesn't include entries with a type
+		       * of MT_RESERVED or higher in total size */
+#define MT_IVT     8 /* inferred - Interrupt Vector Table */
+#define MT_BDA     9 /* inferred - BIOS Data Area */
+#define MT_KERNEL  10 /* inferred - area between BIOS and first MCB */
+#define MT_DEVICE  11 /* values equal to or above this one are treated as
+		       * subordinate to other entries and are hence
+		       * indented by print_entry() */
+#define MT_DOSDATA 12
+#define MT_IFS     13
+
+/* FIXME: NLS the new entries */
+static char *minfo_typenames[] = {
+    "",
+    "free",
+    "system code",
+    "system data",
+    "program",
+    "environment",
+    "data area",
+    "reserved",
+    "interrupt vector table",
+    "BIOS data area",
+    "system data",
+    "device driver",
+    "data area",
+    "IFS"
+};
 
 #define _(set,message_number,message) kittengets(set,message_number,message)
 
@@ -142,14 +177,22 @@ typedef struct device_header
     char name[8];
 } DEVICE_HEADER;
 
+/* forward declarations as these structures link between each other */
+struct devinfo;
+struct minfo;
+
+/* is a character device, as opposed to a block device */
+#define DEVICE_ATTR_IS_CHAR 0x8000
+
 typedef struct devinfo
 {
     struct device_header far *addr;
     char devname[9];
-    char *progname;
+    struct minfo *minfo;
     ushort attr;
     uchar firstdrive, lastdrive;
     struct devinfo *next;
+    struct devinfo *next_in_minfo;
 } DEVINFO;
 
 typedef struct dpb
@@ -190,6 +233,34 @@ typedef struct
     char name[8];
 } MCB;
 
+typedef struct
+{
+    uchar dummy1[22]; /* fields we're not interested in */
+    ushort parent_pid;
+    uchar file_handles[20];
+    ushort env_seg;
+    ulong dummy2;
+    ushort dummy3;
+    ulong dummy4;
+    ulong previous_psp; /* default FFFFFFFFh in DOS 3.x */
+    uchar dummy5[68];
+    uchar cmd_tail_len;
+    uchar cmd_tail[127];
+} PSP;
+    
+
+#define MCB_NAME_MAX_LEN 8
+
+#define OWNER_FREE	0x0000
+#define OWNER_DOS	0x0008
+
+typedef void (*print_minfo_field)(struct minfo *entry);
+
+/*
+ * MINFO elements in the list returned by make_mcb_list do not overlap.
+ * For a particular MINFO 'm', the linked list pointed to by 'first_child'
+ * contains entries that all overlap with m but not with each other.
+ */
 typedef struct minfo
 {
     uchar type;
@@ -204,7 +275,72 @@ typedef struct minfo
     uchar *vectors;
 #endif
     struct minfo *next;
+    struct minfo *first_child;
+    struct devinfo *first_dev;
+    struct devinfo *last_dev;
+    print_minfo_field print_name;
+    print_minfo_field print_type;
+    void *specific;
 } MINFO;
+
+/*
+ * Format of data at start of STACKS code segment (if present)
+ * Comments are from Table 01634 in Ralf Brown's Interrupt List 60
+ */
+typedef struct
+{
+    ushort unknown;		/* ??? */
+    ushort count;		/* number of stacks (the x in STACKS=x,y) */
+    ushort array_size;		/* size of stack control block array (should
+				 * be 8*x */
+    ushort stack_size;		/* size of each stack (the y in STACKS=x,y) */
+    void far *dseg;		/* pointer to STACKS data segment */
+    				/* offset in STACKS data segment of ... */
+    ushort array_offset;	/* ... stack control block array */
+    ushort last_offset;		/* ... last element of that array */
+    ushort free_offset;		/* ... the entry in that array for the next
+				 * stack to be allocated */
+} STACKS;
+
+/*
+ * Format of data at start of FILES segment
+ */
+typedef struct files
+{
+    struct files far *next;
+    ushort count;
+} FILES;
+
+/*
+ * Value of FILES= in config.sys.  We add to this each time we see a FILES
+ * sub-block.
+ */
+ushort files_total_count = 5;
+
+/*
+ * Information pointed to by MINFO.specific
+ */
+typedef struct
+{
+    ushort count;
+    ushort stack_size;
+} STACKSINFO;
+
+typedef struct
+{
+    ushort count;
+    ushort secondary_count;
+} BUFFERSINFO;
+
+typedef struct
+{
+    ushort count;
+} FILESINFO;
+
+typedef struct
+{
+    ushort count;
+} LASTDRIVEINFO;
 
 typedef struct ems_handle
 {
@@ -276,6 +412,11 @@ struct e820map
 
 typedef void far (*xms_drv_t)(void);
 void far (*xms_drv)(void);
+
+/*
+ * What xms_available() returns if XMS is available.
+ */
+#define XMS_AVAILABLE_RESULT 0x80
 
 #ifdef PRAGMAS
 
@@ -469,6 +610,34 @@ ulong check_e820(struct e820map far *e820map, ulong counter);
      ".8086" \
 parm [es di] [bx ax] value [bx ax] modify [si];
 
+/* FIXME: make NASM version */
+/*
+ * Get the extended memory size.  Ralf Brown's Interrupt List notes that
+ * some BIOSes don't properly set the carry flag on failure.  If this
+ * happens, we'll incorrectly show memory as available on systems that
+ * do not support extended memory.
+ *
+ * If (result >> 16) != 0, then result & 0xFF00 = ah = error code,
+ * else result = number of continuous KB starting at absolute address 100000h.
+ */
+ulong get_ext_mem_size(void);
+#pragma aux get_ext_mem_size =			\
+    "mov ah, 0x88"				\
+    "int 15h"					\
+    "xor dx, dx"				\
+    "jnc success"				\
+    "mov dx, 1"					\
+"success:"					\
+value [dx ax];
+
+/* FIXME: put this where NASM version can use it */
+#define GET_EXT_MEM_SIZE_OK(result)	((result >> 16) == 0)
+#define GET_EXT_MEM_SIZE_VALUE(result)	(result)
+#define GET_EXT_MEM_SIZE_ERROR(result)	((result & 0xFF00) >> 8)
+
+#define GET_EXT_MEM_SIZE_ERROR_INVALID_CMD	0x80
+#define GET_EXT_MEM_SIZE_ERROR_UNSUPPORTED	0x86
+
 #else
 
 /* Get OEM number. */
@@ -647,6 +816,19 @@ static ulong check_e801(void)
 
 #endif
 
+#define HMA_FREE_NOT_DOS 0x0000 /* DOS is not in HMA */
+#define HMA_FREE_UNKNOWN 0xFFFF /* DOS doesn't support querying free HMA */
+
+static unsigned int dos_hma_free(void)
+{
+    union REGS regs;
+
+    regs.x.ax = 0x4A01;
+    regs.x.bx = HMA_FREE_UNKNOWN;
+    int86(0x2F, &regs, &regs);
+    return regs.x.bx;
+}
+
 #ifdef __WATCOMC__
 /* WATCOM's getenv is case-insensitive which wastes a lot of space
    for our purposes. So here's a simple case-sensitive one */
@@ -672,7 +854,8 @@ char *getenv(const char *name)
 }
 #endif
 
-static char malloc_buffer[30000];
+#define MALLOC_BUFFER_SIZE 30000
+static char malloc_buffer[MALLOC_BUFFER_SIZE];
 static size_t mbuffer_idx;
 
 /* dumb malloc replacement without possibility to free. that's
@@ -680,6 +863,11 @@ static size_t mbuffer_idx;
 void *malloc(size_t size)
 {
     char *ret = &malloc_buffer[mbuffer_idx];
+
+    if (mbuffer_idx + size > MALLOC_BUFFER_SIZE) {
+/* FIXME: NLS */
+	fatal(_(0,2,"Out of memory!\n"));
+    }
     mbuffer_idx += size;
     return ret;
 }
@@ -712,6 +900,13 @@ static void *xmalloc (size_t size)
 
 #define xcalloc(nitems,size) (xmalloc((nitems) * (size)))
 
+static char *xstrdup (char *src)
+{
+    char *dst = xmalloc(strlen(src) + 1);
+    strcpy(dst, src);
+    return dst;
+}
+
 static unsigned long round_kb(unsigned long bytes)
 {
     return ((bytes + 512) / 1024L);
@@ -722,6 +917,13 @@ static unsigned round_seg_kb(unsigned para)
     return ((para + 32) / 64);
 }
 
+/*
+ * As for printf(), but format may only contain a single format specifier,
+ * which must be "%s" and is replaced with the string form of num with commas
+ * separating groups of three digits.
+ *
+ * e.g. convert("%s bytes", 1234567) -> "1,234,567 bytes"
+ */
 static void convert(const char *format, ulong num)
 {
     int c, i, j, n;
@@ -746,7 +948,7 @@ static char* get_os(void)
 {
     switch (get_oem_number())
         {
-	case 0xFD:
+	case OEM_FREEDOS:
             return "FreeDOS";
         case 0xFF:
 	    if (_osmajor <= 6)
@@ -781,14 +983,28 @@ static EMSINFO *ems_error(void)
 #define ems_version() call_ems_driver(0x46)
 #define ems_num_handles() call_ems_driver_bx(0x4b)
 
+/*
+ * Returns TRUE if the far string and near string which are both of length
+ * max (not NUL-terminated) are equal, FALSE otherwise.
+ */
+int fnstreqn(const char far *s1, const char *s2, size_t max)
+{
+    for (; max > 0; max--) {
+	if (*s1 != *s2) {
+	    return FALSE;
+	}
+	s1++;
+	s2++;
+    }
+    return TRUE;
+}
+
 static EMSINFO *check_ems(void)
 {
     char far *int67;
     static EMSINFO *ems_static_pointer = NULL;
     static EMSINFO ems_static;
     EMSINFO *ems = ems_static_pointer;
-    char *emsname = "EMMXXXX0";
-    unsigned len;
     long tmp;
     
     if (ems != NULL)
@@ -799,9 +1015,13 @@ static EMSINFO *check_ems(void)
         return ems;
 
     int67 = MK_FP(FP_SEG(int67),10);
-    for (len = 8; len; emsname++,int67++,len--)
-	if (*emsname != *int67)
-            return ems;
+
+    /*
+     * The driver name is "EMMQXXX0" if EMM386 /NOEMS was used.  This
+     * is true for both MS-DOS and FreeDOS EMM386.
+     */
+    if (!fnstreqn(int67, "EMMXXXX0", 8))
+	return ems;
             
     ems = ems_static_pointer = &ems_static;
     /* no frame is not an error -- FD EMM386 has that for noems */
@@ -856,6 +1076,21 @@ static EMSINFO *check_ems(void)
 #define xms_hma() ((uchar)(call_xms_driver_dx_bl_al(0, 0)>>16))
 #define xms_largest() ((ushort)call_xms_driver_bx_ax(8, 0))
 #define xms_totalfree() ((ushort)(call_xms_driver_dx_bl_al(8, 0)>>16))
+
+#define XMS_HMA_SIZE ((64 * 1024) - 16)
+#define XMS_HMA_AX(result) (result & 0xFFFF)
+#define XMS_HMA_BL(result) ((result >> 16) & 0xFF)
+#define XMS_HMA_AX_OK		0x0001
+#define XMS_HMA_AX_FAILED	0x0001
+#define XMS_HMA_BL_NOT_IMPL	0x80
+#define XMS_HMA_BL_VDISK	0x81
+#define XMS_HMA_BL_NOT_EXIST	0x90
+#define XMS_HMA_BL_IN_USE	0x91
+#define XMS_HMA_BL_HMAMIN	0x92
+#define XMS_HMA_BL_NOT_IN_USE	0x93
+
+#define xms_hma_request(amount) (call_xms_driver_bx_ax(0x01, amount))
+#define xms_hma_release() (call_xms_driver_bx_ax(0x02, 0))
 
 static ulong xms_exthandlesize(ushort handle)
 {
@@ -913,7 +1148,7 @@ static XMSINFO *check_xms(void)
     }
 
     xms->total=total;
-    if (xms_available() != 0x80)
+    if (xms_available() != XMS_AVAILABLE_RESULT)
         return xms;
 
     xms_drv = get_xms_drv();
@@ -1003,6 +1238,61 @@ static UPPERINFO *check_upper(MINFO *mlist)
     return(upper);
 }
 
+static void print_minfo_name_default(MINFO *entry)
+{
+    printf("%-8s", entry->name);
+}
+
+static void print_minfo_type_default(MINFO *entry)
+{
+    printf("%s", _(3,entry->type,minfo_typenames[entry->type]));
+}
+
+static void print_minfo_type_stacks(MINFO *entry)
+{
+    STACKSINFO *specific = (STACKSINFO *) entry->specific;
+
+    printf("STACKS=%u,%u", specific->count, specific->stack_size);
+}
+
+static void print_minfo_type_buffers(MINFO *entry)
+{
+    BUFFERSINFO *specific = (BUFFERSINFO *) entry->specific;
+
+    printf("BUFFERS=%u,%u", specific->count, specific->secondary_count);
+}
+
+static void print_minfo_type_files(MINFO *entry)
+{
+    FILESINFO *specific = (FILESINFO *) entry->specific;
+
+    printf("FILES=%u (%u in this block)", files_total_count, specific->count);
+}
+
+static void print_minfo_type_lastdrive(MINFO *entry)
+{
+    LASTDRIVEINFO *specific = (LASTDRIVEINFO *) entry->specific;
+    char c;
+
+    c = specific->count + 'A' - 1;
+    if (c > 'Z') {
+	c = 'Z';
+    } else if (c < 'A') {
+	c = '?';
+    }
+    printf("LASTDRIVE=%c", c);
+}
+
+static MINFO *new_minfo(void)
+{
+    MINFO *entry = xcalloc(1, sizeof(MINFO));
+
+    entry->name = "";
+    entry->print_name = print_minfo_name_default;
+    entry->print_type = print_minfo_type_default;
+    return (entry);
+}
+
 #define is_psp(mcb) (*(ushort far*)MK_FP(mcb+1, 0) == 0x20CD)
 
 static unsigned env_seg(unsigned mcb)
@@ -1044,8 +1334,78 @@ static void check_name(char *dest, const char far *src, size_t length)
     }
 }
 
-static MINFO *search_sd(MINFO *mlist)
+static void sd_stacks(MINFO *mlist)
 {
+    STACKS far *stacks;
+    STACKSINFO *specific;
+
+    mlist->name = "STACKS";
+
+    /*
+     * FreeDOS doesn't set up the beginning of the STACKS code segment in
+     * the way that MS-DOS does.
+     */
+/* FIXME: for FreeDOS, need to show STACKS in type column instead of
+ * name since we do that for MS-DOS where we show STACKS=x,y.
+ */
+    if (get_oem_number() != OEM_FREEDOS) {
+	stacks = MK_FP(mlist->seg, 0);
+	specific = xmalloc(sizeof(STACKSINFO));
+	specific->count = stacks->count;
+	specific->stack_size = stacks->stack_size;
+	mlist->specific = specific;
+	mlist->print_type = print_minfo_type_stacks;
+    }
+}
+
+static void sd_buffers(MINFO *mlist)
+{
+    BUFFERSINFO *specific;
+    char far *list_of_lists = dos_list_of_lists();
+
+    mlist->name = "BUFFERS";
+    specific = xmalloc(sizeof(BUFFERSINFO));
+    /*
+     * These values are only in the list of lists for MS-DOS version 4.x
+     * or higher.  We don't need to check for that version though as earlier
+     * versions don't have subsegment descriptors either.
+     */
+    specific->count = *(ushort far *) (list_of_lists + 0x3F);
+    specific->secondary_count = *(ushort far *) (list_of_lists + 0x41);
+    mlist->specific = specific;
+    mlist->print_type = print_minfo_type_buffers;
+}
+
+static void sd_files(MINFO *mlist)
+{
+    FILES far *files;
+    FILESINFO *specific;
+
+    specific = xmalloc(sizeof(FILESINFO));
+    mlist->name = "FILES";
+    files = MK_FP(mlist->seg, 0);
+    specific->count = files->count;
+    files_total_count += files->count;
+    mlist->specific = specific;
+    mlist->print_type = print_minfo_type_files;
+}
+
+static void sd_lastdrive(MINFO *mlist)
+{
+    LASTDRIVEINFO *specific;
+
+    specific = xmalloc(sizeof(LASTDRIVEINFO));
+    mlist->name = "LASTDRV";
+/* FIXME: offset is 1Bh for DOS 3.0; doesn't exist in previous versions */
+    specific->count = * (uchar far *) (dos_list_of_lists() + 0x21);
+    mlist->specific = specific;
+    mlist->print_type = print_minfo_type_lastdrive;
+}
+
+static MINFO *search_sd(MINFO *parent)
+{
+    MINFO *first_child, *mlist;
+
     ushort begin, end, i;
     SD_HEADER far *sd;
     static struct {char c; char *s;} sdtype[] = 
@@ -1059,14 +1419,19 @@ static MINFO *search_sd(MINFO *mlist)
       { 'S', "STACKS" }
     };
 
-    begin=mlist->seg + 1;
-    end=mlist->seg + mlist->size;
+    begin=parent->seg + 1;
+    end=parent->seg + parent->size;
     sd=MK_FP(begin, 0);
+    mlist = NULL;
     while ((FP_SEG(sd) >= begin) && (FP_SEG(sd) < end))
         {
         char type = sd->type;
-        mlist->next = xcalloc(1, sizeof(MINFO));
-	mlist = mlist->next;
+	if (mlist == NULL) {
+	    mlist = first_child = new_minfo();
+	} else {
+	    mlist->next = new_minfo();
+	    mlist = mlist->next;
+	}
         mlist->owner = mlist->seg = sd->start;
         mlist->size=sd->size;
         mlist->type=MT_DOSDATA;
@@ -1084,6 +1449,14 @@ static MINFO *search_sd(MINFO *mlist)
 	       and DRIVEDATA areas never */
             mlist->name = mlist->size == 34 ? "SECTORBUF" : "DRIVEDATA";
             }
+	else if (type == 'S')
+	    sd_stacks(mlist);
+	else if (type == 'C' || type == 'B')
+	    sd_buffers(mlist);
+	else if (type == 'F')
+	    sd_files(mlist);
+	else if (type == 'L')
+	    sd_lastdrive(mlist);
         else
             {
             mlist->name = " ??????";
@@ -1097,19 +1470,19 @@ static MINFO *search_sd(MINFO *mlist)
             }
 	sd=MK_FP(sd->start + sd->size, 0);
         }
-    return(mlist);
+    return(first_child);
 }
 
-static MINFO *register_dos_mcb(MINFO *mlist)
+static void register_dos_mcb(MINFO *mlist)
 {
-    if (!mlist->owner) {
+    if (mlist->owner == OWNER_FREE) {
         mlist->type=MT_FREE;
-    } else if (mlist->owner <= 0x0008) {
+    } else if (mlist->owner <= OWNER_DOS) {
         MCB far *mcb = MK_FP(mlist->seg, 0);
         mlist->name = "DOS";
         if (mcb->name[0]=='S' && mcb->name[1]=='D') {
             mlist->type=MT_SYSDATA;
-            mlist=search_sd(mlist);
+            mlist->first_child=search_sd(mlist);
         } else {
 	    /* can be either system code or an UMB hole */
 	    unsigned seg = mlist->seg + 1;
@@ -1125,32 +1498,47 @@ static MINFO *register_dos_mcb(MINFO *mlist)
 	    }
         }
     }
-    return mlist;
 }
 
 static void program_mcb(MINFO *mlist)
 {
     MCB far *mcb;
+#if 0
+    PSP far *psp;
+#endif
 
-    mlist->name = xmalloc(9);
+    mlist->name = xmalloc(MCB_NAME_MAX_LEN + 1);
     mcb = MK_FP(mlist->seg, 0);
-    check_name(mlist->name, mcb->name, 8);
+    check_name(mlist->name, mcb->name, MCB_NAME_MAX_LEN);
     mlist->environment=env_seg(mlist->seg);
     mlist->type=MT_PROGRAM;
+#if 0
+    /*
+     * This is test code.  At some point we should use the parent PID
+     * to provide a process tree if requested by the user via a (new)
+     * command-line option.
+     */
+    psp = MK_FP(mlist->seg + 1, 0);
+    printf("name=%8s,pid=%04X, ppid=%04X\n", mlist->name,
+	   mlist->seg + 1, psp->parent_pid);
+#endif
 }
 
-static MINFO *register_mcb(MINFO *mlist)
+static void register_mcb(MINFO *mlist)
 {
     MCB far *mcb = MK_FP(mlist->seg, 0);
 
-    mlist->name="";    
     mlist->owner=mcb->owner;
     mlist->size=mcb->size;
+
+    /*
+     * The call to is_psp() below is redundant as owner should always
+     * be equal to seg + 1.
+     */
     if (mlist->owner && (is_psp(mlist->seg) || mlist->owner == mlist->seg + 1))
         program_mcb(mlist);
     else
-        mlist=register_dos_mcb(mlist);
-    return mlist;
+        register_dos_mcb(mlist);
 }
 
 static MINFO *make_mcb_list(unsigned *convmemfree)
@@ -1167,7 +1555,35 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     origlink=get_upperlink();
     set_upperlink(1);
 
-    mlistroot = mlist = xcalloc(1, sizeof(MINFO));
+    mlistroot = mlist = new_minfo();
+
+    /*
+     * Set up BIOS memory blocks which are always fixed in size and location.  */
+    mlist->seg = FP_SEG(0);
+    mlist->size = 256 * 4 / CONV_BYTES_PER_PAGE; /* num. interrupts * sizeof(far ptr) / para */
+    mlist->type = MT_IVT;
+    mlist->next = new_minfo();
+    mlist->next->seg = mlist->size;
+    mlist = mlist->next;
+
+    mlist->size = 0x30;
+    mlist->type = MT_BDA;
+    mlist->next = new_minfo();
+    mlist->next->seg = mlist->seg + mlist->size;
+    mlist = mlist->next;
+
+    mlist->name = "IO";
+    /*
+     * Get the segment address of the first MCB (which will be for
+     * DOS) from the list of lists.  The memory between the end of the
+     * BIOS Data Area and the start of the first DOS MCB is the
+     * kernel.
+     */
+    mlist->size = *(ushort far *)(dos_list_of_lists()-2) - mlist->seg;
+    mlist->type = MT_KERNEL;
+    mlist->next = new_minfo();
+    mlist = mlist->next;
+
 
     /* In LL in offset -02 there's pointer to first mem block (segment only). */
     cur_mcb=MK_FP(*(ushort far *)(dos_list_of_lists()-2), 0);
@@ -1175,9 +1591,9 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     while(cur_mcb->type == 'M')
     {
         mlist->seg = FP_SEG(cur_mcb);
-        mlist=register_mcb(mlist);
+        register_mcb(mlist);
         cur_mcb = MK_FP(FP_SEG(cur_mcb) + cur_mcb->size + 1, FP_OFF(cur_mcb));
-        mlist->next=xcalloc(1, sizeof(MINFO));
+        mlist->next=new_minfo();
         mlist=mlist->next;
     }
     if (cur_mcb->type != 'Z')
@@ -1219,8 +1635,7 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
 
     /* get free memory */
     for (mlist=mlistroot; mlist!=NULL; mlist=mlist->next) {
-        if ((mlist->type == MT_FREE || mlist->seg + 1 == _psp)
-            && mlist->seg < convtopseg)
+        if (show_minfo_as_free(mlist) && mlist->seg < convtopseg)
             freemem += mlist->size + 1;
     }
     
@@ -1250,12 +1665,53 @@ static unsigned mcb_largest(void)
     return largest;
 }    
 
+int addr_in_block(void far *addr, MINFO *minfo)
+{
+    ulong base = (ulong) minfo->seg * CONV_BYTES_PER_PAGE;
+    ulong limit = base + ((ulong) minfo->size) * CONV_BYTES_PER_PAGE;
+    ulong normal_addr = (ulong) FP_SEG(addr) * CONV_BYTES_PER_PAGE + (ulong) FP_OFF(addr);
+
+#ifdef DEBUG
+    printf("is %05lX in range %05lX(%04X)-%05lX (program %s)\n",
+	   normal_addr, base, minfo->seg, limit, minfo->name);
+#endif
+    return (normal_addr >= base && normal_addr <= limit);
+}
+
+/*
+ * Set the MINFO that a device is inside of.
+ */
+static void set_dev_minfo(DEVINFO *dlist, MINFO *mlist)
+{
+    if (dlist->minfo != NULL) {
+/* FIXME: NLS */
+	printf("Warning: device appears to be owned by multiple "
+	       "memory blocks (%s and %s)\n", mlist->name,
+	       dlist->minfo->name);
+	dlist->next_in_minfo = NULL;
+    }
+    dlist->minfo = mlist;
+    /*
+     * Maintain per-MCB list of devices.
+     */
+    dlist->next_in_minfo = NULL;
+    if (mlist->first_dev == NULL) {
+	mlist->first_dev = dlist;
+	mlist->last_dev = dlist;
+    } else {
+	mlist->last_dev->next_in_minfo = dlist;
+	mlist->last_dev = dlist;
+    }
+}
+
 static DEVINFO *make_dev_list(MINFO *mlist)
 {
     DEVICE_HEADER far *cur_dev;
     DPB far*cur_dpb;
     DEVINFO *dlistroot, *dlist;
     MINFO *mlistroot = mlist;
+    MINFO *mchild;
+    int found_in_child;
     
     dlist = dlistroot = xcalloc(1, sizeof(DEVINFO));
 
@@ -1264,7 +1720,8 @@ static DEVINFO *make_dev_list(MINFO *mlist)
     while (FP_OFF(cur_dev) != 0xFFFF) {
 	dlist->addr=cur_dev;
         dlist->attr=cur_dev->attr;
-        dlist->progname="";
+        dlist->minfo=NULL;
+        dlist->next_in_minfo=NULL;
         check_name(dlist->devname, cur_dev->name, 8);
         cur_dev=cur_dev->next;
         if (FP_OFF(cur_dev) != 0xFFFF) {
@@ -1273,10 +1730,26 @@ static DEVINFO *make_dev_list(MINFO *mlist)
         }
     }
 
+    /*
+     * For each device, scan mlist for the memory block containing the
+     * device so we can get the program name.  For mlist entries with
+     * children, we scan the children first, because if one of the children
+     * matches, the parent will also match, but we are more interested in
+     * which child matches.
+     */
     for (dlist=dlistroot;dlist!=NULL;dlist=dlist->next)
-        for (mlist=mlistroot;mlist!=NULL;mlist=mlist->next)
-            if (mlist->seg == FP_SEG(dlist->addr))
-                dlist->progname = mlist->name;
+        for (mlist=mlistroot;mlist!=NULL;mlist=mlist->next) {
+	    found_in_child = FALSE;
+	    for (mchild=mlist->first_child;mchild!=NULL;mchild=mchild->next) {
+		if (addr_in_block(dlist->addr, mchild)) {
+		    found_in_child = TRUE;
+		    set_dev_minfo(dlist, mchild);
+		}
+	    }
+	    if (!found_in_child && addr_in_block(dlist->addr, mlist)) {
+		set_dev_minfo(dlist, mlist);
+	    }
+	}
 
     for  (cur_dpb = *((DPB far *far*)dos_list_of_lists());
           FP_OFF(cur_dpb) != 0xFFFF; cur_dpb=cur_dpb->next_dpb)
@@ -1297,18 +1770,93 @@ static DEVINFO *make_dev_list(MINFO *mlist)
 
     for (dlist=dlistroot;dlist!=NULL;dlist=dlist->next)
         {
-        if ((dlist->attr & 0x8000) == 0)
-            dlist->devname[0]='\0';
-
-        if (dlist->firstdrive != 0)
+	if ((dlist->attr & DEVICE_ATTR_IS_CHAR) == 0)
             {
-            sprintf(dlist->devname, "%c:", dlist->firstdrive);
-            if (dlist->lastdrive != 0)
-                sprintf(&dlist->devname[2], " - %c:", dlist->lastdrive);
+	    if (dlist->firstdrive != 0)
+                {
+                sprintf(dlist->devname, "%c:", dlist->firstdrive);
+                if (dlist->lastdrive != 0)
+                    sprintf(&dlist->devname[2], " - %c:", dlist->lastdrive);
+                }
+            else
+                {
+/* FIXME: NLS */
+                strcpy(dlist->devname, "(no drv)");
+                }
             }
         }
 
     return dlistroot;
+}
+
+MINFO *minfo_dup(MINFO *minfo)
+{
+    MINFO *new_minfo;
+
+    new_minfo = xmalloc(sizeof(MINFO));
+    memcpy(new_minfo, minfo, sizeof(MINFO));
+    return new_minfo;
+}
+
+typedef int (*mlist_filter_match)(MINFO *entry, void *data);
+
+MINFO *filter_mlist(MINFO *mlisthead, mlist_filter_match is_match, void *data)
+{
+    MINFO *filtered_head, *filtered_tail;
+
+    /*
+     * Move mlisthead to the first matching entry.
+     */
+    while (mlisthead != NULL && !is_match(mlisthead, data)) {
+	mlisthead = mlisthead->next;
+    }
+
+    if (mlisthead == NULL) {
+	/*
+	 * No entries match the given module name.
+	 */
+	return NULL;
+    }
+
+    filtered_head = filtered_tail = minfo_dup(mlisthead);
+    mlisthead = mlisthead->next;
+
+    while (mlisthead != NULL) {
+	if (is_match(mlisthead, data)) {
+	    /*
+	     * Duplicate the MINFO element and put it on the end of the
+	     * filtered list.
+	     */
+	    filtered_tail->next = minfo_dup(mlisthead);
+	    filtered_tail = filtered_tail->next;
+	}
+	mlisthead = mlisthead->next;
+    }
+
+    /*
+     * The 'next' field will have whatever value the MINFO it was duplicated
+     * from had, which wouldn't be NULL unless it was the last entry in the
+     * original list.
+     */
+    filtered_tail->next = NULL;
+
+    return filtered_head;
+}
+
+int filter_by_module_name(MINFO *entry, void *data)
+{
+    return (strcmpi(entry->name, (char *) data) == 0);
+}
+
+/*
+ * Filter for /U
+ */
+/* FIXME: this shows things like STACKS that should not be included; need an option to filter_mlist which indicates whether we should have an expanded view (i.e. include everything linked under an MINFO that matches the filter) or a collapsed view (only show things that are linked under an MINFO if they also match the filter) where we'd use collapsed for this view but expanded for /MODULE? */
+int filter_upper(MINFO *entry, void *data)
+{
+    return (entry->type != MT_NONE
+	    && (entry->type < MT_ENV
+		|| entry->type == MT_DEVICE));
 }
 
 #define dos_in_hma() (dos_in_hma_() & 0x10)
@@ -1316,9 +1864,9 @@ static DEVINFO *make_dev_list(MINFO *mlist)
 static void print_normalized_ems_size(unsigned n)
 {
     if (n > 624) /* 9984 is the highest "K" value */
-	convert("%4sM ", (n + 32) / 64);
+	convert("%5sM ", (n + 32) / 64);
     else
-	convert("%4sK ", n * 16);
+	convert("%5sK ", n * 16);
     convert(_(1,2,"(%s bytes)\n"), n * 16384L);
 }
 
@@ -1331,7 +1879,137 @@ static void print_normal_entry(char *text, unsigned long total,
     convert("%9sK\n", free);
 }
 
-static void normal_list(unsigned memfree, UPPERINFO *upper)
+/*
+ * There are a number of possibilities:
+ *
+ * - DOS is resident in and hence manging the HMA
+ *   - in this case we ask DOS how much space is free in the HMA
+ * - DOS is not managing the HMA
+ *   - in this case an XMS driver (e.g. HIMEM) may be managing it and we
+ *     can find out about it by trying to allocate the HMA
+ *     - in this case the HMA may already be in use in which case the
+ *       whole area has been allocated to a program
+ *     - the XMS driver may not implement HMA
+ *     - the XMS driver may see that the HMA contains a VDISK header
+ *     - the XMS driver may report HMA does not exist
+ *     - otherwise it is all free
+ *       - there may be a minimum size for TSRs to be allowed HMA
+ *   - otherwise (no XMS driver) HMA is not available
+ */
+static void show_hma_info(int show_hma_free)
+{
+    unsigned int high, low, test;
+
+    if (dos_in_hma()) {
+	if (show_hma_free) {
+	    unsigned int hma_free = dos_hma_free();
+
+/* FIXME: NLS */
+	    printf("%-38s%3uK", _(2,10,"Available space in High Memory Area"),
+		   round_kb(hma_free));
+	    convert(_(1,3," (%7s bytes)\n"), hma_free);
+	}
+        printf(_(2,11,"%s is resident in the high memory area.\n"), get_os());
+    } else {
+	if (show_hma_free) {
+	    if (xms_available() == XMS_AVAILABLE_RESULT) {
+		ulong result;
+
+		xms_drv = get_xms_drv();
+		/*
+		 * Try requesting a small amount of memory so as to
+		 * simultaneoulsy check if HMA is available and whether HMAMIN
+		 * is set.
+		 */
+		result = xms_hma_request(1);
+		if (XMS_HMA_AX(result) == XMS_HMA_AX_OK) {
+/* FIXME: NLS */
+		    printf("HMA is available via the XMS driver\n");
+		} else {
+		    switch (XMS_HMA_BL(result)) {
+		    case XMS_HMA_BL_NOT_IMPL:
+/* FIXME: NLS */
+			printf("HMA is not available via the XMS driver: not implemented by the driver\n");
+			break;
+		    case XMS_HMA_BL_VDISK:
+/* FIXME: NLS */
+			printf("HMA is not available via the XMS driver: a VDISK device is present\n");
+			break;
+		    case XMS_HMA_BL_NOT_EXIST:
+/* FIXME: NLS */
+			printf("HMA is not available via the XMS driver: HMA does not exist\n");
+			break;
+		    case XMS_HMA_BL_IN_USE:
+/* FIXME: NLS */
+			printf("HMA is not available via the XMS driver: HMA already in use\n");
+			break;
+		    case XMS_HMA_BL_HMAMIN:
+			/*
+			 * HMA is available but HMAMIN is set, so try to
+			 * determine what HMAMIN is set to.
+			 */
+			low = 0;
+			high = XMS_HMA_SIZE + 1;
+			while (high - low > 1) {
+			    test = ((ulong) high + (ulong) low) / 2;
+#ifdef DEBUG
+			    printf("HMAMIN binary search: low=%5u high=%5u "
+				   "test=%5u\n", low, high, test);
+#endif
+			    result = xms_hma_request(test);
+			    if (XMS_HMA_AX(result) != XMS_HMA_AX_OK) {
+				low = test;
+			    } else {
+				high = test;
+				result = xms_hma_release();
+				if (XMS_HMA_AX(result) != XMS_HMA_AX_FAILED) {
+				    /* FIXME: NLS and use fatal function/terminate */
+				    printf("Fatal: failed to free HMA, error "
+					   "code %02Xh\n", XMS_HMA_BL(result));
+				}
+			    }
+			}
+			if (high == XMS_HMA_SIZE + 1) {
+/* FIXME: NLS */
+			    printf("HMA is not available via the XMS driver: HMAMIN is larger than HMA\n");
+			} else {
+/* FIXME: NLS */
+			    printf("HMA is available via the XMS driver; minimum TSR size (HMAMIN) is %u bytes\n", high);
+			}
+			break;
+		    default:
+/* FIXME: NLS */
+			printf("HMA is not available via the XMS driver: unknown error %02Xh\n",
+			       XMS_HMA_BL(result));
+		    }
+		}
+	    } else {
+/* FIXME: NLS */
+		printf("HMA is not available as no XMS driver is loaded\n");
+	    }
+	}
+    }
+}
+
+static void int_15_info(void)
+{
+    ulong result = get_ext_mem_size();
+
+    if (GET_EXT_MEM_SIZE_OK(result)) {
+/* FIXME: NLS */
+	printf("%-38s%3uK", _(2,10,"Memory accessible using Int 15h"),
+	       round_kb(BYTES_PER_KB * GET_EXT_MEM_SIZE_VALUE(result)));
+	convert(_(1,3," (%7s bytes)\n"),
+		(ulong) GET_EXT_MEM_SIZE_VALUE(result) * BYTES_PER_KB);
+    } else {
+/* FIXME: NLS */
+	printf("Memory is not accessible using Int 15h (code %02h)\n",
+	       GET_EXT_MEM_SIZE_ERROR(result));
+    }
+}
+
+static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
+			int show_int_15)
 {
     unsigned memory, memused, largest_executable, reserved;
     unsigned umbfree = 0, umbtotal = 0;
@@ -1374,39 +2052,128 @@ static void normal_list(unsigned memfree, UPPERINFO *upper)
         printf("\n");
     }
 
+    /*
+     * We only show the amount of memory available via INT 15 if /DEBUG
+     * was specified to mimic MS-DOS.
+     */
+    if (show_int_15) {
+	int_15_info();
+    }
+
     largest_executable = mcb_largest();
 
     printf("%-38s%3uK", _(2,9,"Largest executable program size"), round_seg_kb(largest_executable));
-    convert(_(1,3," (%7s bytes)\n"), (ulong)largest_executable*16);
+    convert(_(1,3," (%7s bytes)\n"), (ulong)largest_executable
+	    * CONV_BYTES_PER_PAGE);
+/* FIXME: this is inconsistent with MS-DOS 6.22 which shows 0K if no UMBs */
     if (upper != NULL) {
 	printf("%-38s%3uK", _(2,10,"Largest free upper memory block"), round_seg_kb(upper->largest));
-	convert(_(1,3," (%7s bytes)\n"), (ulong)upper->largest*16);
+	convert(_(1,3," (%7s bytes)\n"), (ulong)upper->largest
+		* CONV_BYTES_PER_PAGE);
     }
 
-    if (dos_in_hma())
-        printf(_(2,11,"%s is resident in the high memory area.\n"), get_os());
-}    
-
-static void print_entry(MINFO *entry)
-{
-    static char *typenames[]= { "", "free", "system code", "system data",
-				"program", "environment", "data area",
-				"reserved", "device driver",
-				"data area", "IFS" };
-    char *space = "";
-    if (entry->type >= MT_DEVICE)
-        space = " ";
-    printf("  %04X%9lu   %s%-12s%-13s\n",
-           entry->seg, (ulong)entry->size*16, space, entry->name, 
-	   _(3,entry->type,typenames[entry->type]));
+    show_hma_info(show_hma_free);
 }
 
+/*
+ * Minimum (top) level is 0, and maximum is 2 when we have a device under a
+ * child memory block.
+ */
+#define MAX_LEVEL 2
+
+/*
+ * Number of characters to indent by per level.
+ */
+#define INDENT_PER_LEVEL 2
+
+/*
+ * Maximum number of characters of indent.
+ */
+#define MAX_INDENT_SIZE (MAX_LEVEL * INDENT_PER_LEVEL)
+
+static void indent_setup(char *pre_indent, char *post_indent,
+			 unsigned int level)
+{
+/* FIXME:assert(level <= MAX_LEVEL);*/
+    /* fill buffers with the maximum number of space characters we might
+       need */
+    memset(pre_indent, ' ', MAX_INDENT_SIZE);
+    memset(post_indent, ' ', MAX_INDENT_SIZE);
+    /* put the terminating NUL character at the right location */
+    pre_indent[level * INDENT_PER_LEVEL] = '\0';
+    post_indent[(MAX_LEVEL - level) * INDENT_PER_LEVEL] = '\0';
+}
+
+/*
+ * Print the specified value in conventional memory pages (of 16
+ * bytes) as bytes and kilobytes, e.g "16,384   (16K)".
+ *
+ * format must be valid for convert() which means it must include a
+ * "%s".  On top of the width of that string will be an additional 8
+ * characters that are used to show the value in kilobytes, so for a
+ * value less than 1000K there will be two spaces of leading padding,
+ * e.g. "  (999K)".
+ *
+ * e.g. print_classify_value("%7s", 999999)
+ *      results in: "999,999  (999K)"
+ *                  \_____/\______/
+ *                     /       \
+ *  "%7s": 7 characters         always 8 characters wide
+ *
+ * You should therefore typically pass at least "%7s" and allow 7+8=15
+ * characters to allow enough room for a normal conventional memory
+ * block's size to be displayed.
+ */
 static void print_classify_value(const char *format, unsigned n)
 {
     char kbuf[8];
-    convert(format, n*16UL);
+    convert(format, n*CONV_BYTES_PER_PAGE);
     sprintf(kbuf, "(%uK)", round_seg_kb(n));
     printf("%8s", kbuf);
+}
+
+static void print_minfo_full(MINFO *entry, unsigned int level)
+{
+    char pre_indent[MAX_INDENT_SIZE + 1];
+    char post_indent[MAX_INDENT_SIZE + 1];
+
+    indent_setup(pre_indent, post_indent, level);
+#if 0
+    printf("  %04X%9lu   %s",
+           entry->seg, (ulong)entry->size * CONV_BYTES_PER_PAGE,
+	   pre_indent);
+#endif
+    printf("  %04X", entry->seg);
+    print_classify_value("%11s", (ulong)entry->size);
+    printf("  %s", pre_indent);
+    entry->print_name(entry);
+    printf("%s  ", post_indent);
+    entry->print_type(entry);
+    printf("\n");
+}
+
+static void print_minfo_free(MINFO *entry, unsigned int level)
+{
+    printf("  %04X", entry->seg);
+    print_classify_value("%11s", (ulong)entry->size);
+    printf("\n");
+}
+
+static void print_devinfo_full(DEVINFO *entry, unsigned int level)
+{
+    char pre_indent[MAX_INDENT_SIZE + 1];
+    char post_indent[MAX_INDENT_SIZE + 1];
+
+    indent_setup(pre_indent, post_indent, level);
+
+/* FIXME: make sure entry->minfo != NULL */
+    if (entry->minfo->type == MT_KERNEL) {
+	printf("                             %s%-8s%ssystem device driver\n",
+	       pre_indent, entry->devname, post_indent);
+    } else {
+	printf("                             %s%-8s%sinstalled DEVICE=%s\n",
+	       pre_indent, entry->devname, post_indent, entry->minfo->name);
+    }
 }
 
 static void print_classify_entry(char *name, unsigned total_conv, unsigned total_umb)
@@ -1436,7 +2203,8 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
 	    || ml->type == MT_RESERVED)
             ml->classified = 1;
         else if (ml->type == MT_SYSCODE || ml->type == MT_SYSDATA
-		 || ml->type >= MT_DEVICE) {
+		 || ml->type == MT_KERNEL || ml->type == MT_IVT
+		 || ml->type == MT_BDA || ml->type >= MT_DEVICE) {
             int size = ml->size + 1;
 	    if (ml->type == MT_DEVICE)
 		size = -(size - 1);
@@ -1468,37 +2236,108 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
     print_classify_entry(_(4,3,"Free"), convmemfree, umbmemfree);
 }
 
+typedef void (*print_minfo_t)(MINFO *entry, unsigned int level);
+typedef void (*print_devinfo_t)(DEVINFO *entry, unsigned int level);
+
+static void generic_list(MINFO *ml, unsigned int level,
+			 print_minfo_t print_minfo,
+			 print_devinfo_t print_devinfo)
+{
+    DEVINFO *dl;
+
+    for (;ml!=NULL;ml=ml->next) {
+	if (print_minfo) {
+	    print_minfo(ml, level);
+	}
+	if (print_devinfo) {
+	    for (dl=ml->first_dev;dl!=NULL;dl=dl->next_in_minfo) {
+		if (print_devinfo != NULL) {
+		    print_devinfo(dl, level);
+		}
+	    }
+	}
+	if (ml->first_child) {
+	    generic_list(ml->first_child, level + 1,
+			 print_minfo, print_devinfo);
+	}
+    }
+}    
+
+static void print_full_header(void)
+{
+/* FIXME: NLS - increased width of "Name" field by 2 */
+    printf(_(4,4,"\nSegment       Total            Name          Type\n"));
+    printf(        "-------  ----------------  ------------  -------------\n");
+}
+
+static void print_free_header(void)
+{
+/* FIXME: NLS */
+    printf(_(4,4,"\nSegment       Total\n"));
+    printf(        "-------  ----------------\n");
+}
+
+static void print_full_footer(ulong total)
+{
+/* FIXME: NLS */
+    printf(        "         ----------------\n");
+    printf(        "Total:");
+    print_classify_value("%11s", total);
+    printf("\n");
+}
+
 static void upper_list(void)
 {
-    MINFO *ml;
+    MINFO *mlisthead = make_mcb_list(NULL);
 
-    printf(_(4,4,"\nSegment   Size       Name         Type\n"));
-    printf(        "------- --------  ----------  -------------\n");
-    for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
-        if (ml->type != MT_NONE && (ml->type < MT_ENV || ml->type == MT_DEVICE))
-		print_entry(ml);
+    /* ignore the return value, as we get the DEVINFO entries from mlisthead */
+    (void) make_dev_list(mlisthead);
+
+    /*
+     * Filter the list to just the entries with the given name.
+     */
+    mlisthead = filter_mlist(mlisthead, filter_upper, NULL);
+
+    print_full_header();
+
+    generic_list(mlisthead, 0, print_minfo_full, print_devinfo_full);
 }
 
 static void full_list(void)
 {
-    MINFO *ml;
-    
-    printf(_(4,4,"\nSegment   Size       Name         Type\n"));
-    printf(        "------- --------  ----------  -------------\n");
-    for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
-        print_entry(ml);
+    print_full_header();
+    generic_list(make_mcb_list(NULL), 0, print_minfo_full, NULL);
 }
 
 static void device_list(void)
 {
     DEVINFO *dl;
+    char *progname;
 
     printf(_(4,5,"\n   Address     Attr    Name       Program\n"));
     printf(        " -----------  ------ ----------  ----------\n");
              /*  XXXX:XXXX    XXXX   XXXXXXXX    XXXXXXXX */
-    for (dl=make_dev_list(make_mcb_list(NULL));dl!=NULL;dl=dl->next)
+    for (dl=make_dev_list(make_mcb_list(NULL));dl!=NULL;dl=dl->next) {
+        progname = (dl->minfo != NULL) ? dl->minfo->name : "";
 	printf("  %p    %04X   %-8s    %-8s\n", dl->addr, dl->attr,
-                dl->devname, dl->progname);
+                dl->devname, progname);
+    }
+}
+
+static void debug_list(void)
+{
+    MINFO *ml;
+
+/* FIXME: NLS and pick correct text */
+/* FIXME: high mem not shown separately */
+    printf("Conventional Memory Detail:\n");
+
+    ml = make_mcb_list(NULL);
+    /* ignore the return value, as we get the DEVINFO entries from ml */
+    (void) make_dev_list(ml);
+
+    print_full_header();
+    generic_list(ml, 0, print_minfo_full, print_devinfo_full);
 }
 
 static void ems_list(void)
@@ -1523,9 +2362,9 @@ static void ems_list(void)
 	    printf("%04X\n", ems->frame);
 	}
 	printf(format, _(5,4,"Total EMS memory"));
-	printf(_(1,1,"%lu bytes\n"), ems->size * 16384L);
+	printf(_(1,1,"%lu bytes\n"), ems->size * EMS_BYTES_PER_PAGE);
 	printf(format, _(5,5,"Free EMS memory"));
-	printf(_(1,1,"%lu bytes\n"), ems->free * 16384L);
+	printf(_(1,1,"%lu bytes\n"), ems->free * EMS_BYTES_PER_PAGE);
 	printf(format, _(5,6,"Total handles"));
 	printf("%u\n", ems->totalhandle);
 	printf(format, _(5,7,"Free handles"));
@@ -1549,7 +2388,8 @@ static void ems_list(void)
             }
 
             printf("%9u%7u%10lu%11s\n", ems->handles[i].handle,
-                   ems->handles[i].pages, (ulong)ems->handles[i].pages * 16384L, handlename);
+                   ems->handles[i].pages, (ulong)ems->handles[i].pages
+		   * EMS_BYTES_PER_PAGE, handlename);
         }
     }
 }
@@ -1730,15 +2570,107 @@ static void xms_list(void)
     if (upper != NULL)
     {
 	printf(format, _(6,16,"Free upper memory"));
-	printf(_(1,1,"%lu bytes\n"), upper->free*16L);
+	printf(_(1,1,"%lu bytes\n"), upper->free*CONV_BYTES_PER_PAGE);
 	printf(format, _(6,17,"Largest upper block"));
-	printf(_(1,1,"%lu bytes\n"), upper->largest*16L);
+	printf(_(1,1,"%lu bytes\n"), upper->largest*CONV_BYTES_PER_PAGE);
     }
     else
     {
 	printf(_(6,18,"Upper memory not available\n"));
     }
 
+}
+
+ulong total_mem(MINFO *mlist)
+{
+    ulong result = 0;
+
+    while (mlist != NULL) {
+	result += mlist->size;
+	mlist = mlist->next;
+    }
+    return result;
+}
+
+void module_list(char *module_name)
+{
+    MINFO *mlisthead = make_mcb_list(NULL);
+
+    /*
+     * The parser will not indicate /MODULE was specified without setting
+     * module_name.
+     */
+/*FIXME: assert(module_name != NULL);*/
+
+    /* ignore the return value, as we get the DEVINFO entries from mlisthead */
+    (void) make_dev_list(mlisthead);
+
+    /*
+     * Filter the list to just the entries with the given name.
+     */
+    mlisthead = filter_mlist(mlisthead, filter_by_module_name, module_name);
+    if (mlisthead == NULL) {
+/* FIXME: NLS */
+	printf("%s is not currently in memory.\n", module_name);
+	return;
+    }
+
+/* FIXME: NLS */
+    printf("%s is using the following memory:\n", module_name);
+    print_full_header();
+
+    generic_list(mlisthead, 0, print_minfo_full, print_devinfo_full);
+
+    print_full_footer(total_mem(mlisthead));
+}
+
+/*
+ * Obviously MCBs that are actually free should be shown as such, but we also
+ * show our own MCB as free because the user isn't too interested in how much
+ * memory MEM takes.  Note that MEM /DEBUG or MEM /FULL should still show
+ * MEM in their output, but MEM /FREE should show MEM's block as free and
+ * the plain MEM output should include MEM's own MCB in the free memory total.
+ */
+int show_minfo_as_free(MINFO *entry)
+{
+    return (entry->type == MT_FREE || (entry->seg + 1 == _psp));
+}
+
+int filter_free(MINFO *entry, void *data)
+{
+    return (show_minfo_as_free(entry));
+}
+
+void free_list(void)
+{
+    MINFO *mlisthead = make_mcb_list(NULL);
+
+    /* ignore the return value, as we get the DEVINFO entries from ml */
+    (void) make_dev_list(mlisthead);
+
+    /*
+     * Filter the list to just the entries with the given name.
+     */
+    mlisthead = filter_mlist(mlisthead, filter_free, NULL);
+    if (mlisthead == NULL) {
+/* FIXME: NLS */
+	printf("There is no free memory!\n");
+	return;
+    }
+
+/* FIXME: MS-DOS splits into conventional and upper; we should too */
+/* FIXME: NLS */
+    printf("Free Conventional Memory:\n");
+
+    print_free_header();
+
+    /*
+     * Pass NULL for print_devinfo as we won't be printing any devices
+     * - a free block won't have any devices linked off it.
+     */
+    generic_list(mlisthead, 0, print_minfo_free, NULL);
+
+    print_full_footer(total_mem(mlisthead));
 }
 
 /* function to obtain the number of lines on the screen...added by brian reifsnyder.  */
@@ -1752,57 +2684,286 @@ static uchar get_font_info(void)
     return number_of_lines;
 }
 
-enum {F_HELP = 1, F_DEVICE = 2, F_EMS = 4, F_FULL = 8, F_UPPER = 16,
-      F_XMS = 32, F_PAGE = 64, F_CLASSIFY = 128 };
+int is_switch_char(char c)
+{
+    return (c == '-' || c == '/');
+}
+
+#define NO_SWITCH_CHAR '\0'
+
+typedef enum {
+    F_HELP = 1,
+    F_DEVICE = 2,
+    F_EMS = 4,
+    F_FULL = 8,
+    F_UPPER = 16,
+    F_XMS = 32,
+    F_PAGE = 64,
+    F_CLASSIFY = 128,
+    F_DEBUG = 256,
+    F_MODULE = 512,
+    F_FREE = 1024,
+    F_ALL = 2048,
+    F_NOSUMMARY = 4096
+} opt_flag_t;
+
+typedef struct {
+    char *s;
+    opt_flag_t flag;
+    char **value;
+} opt_t;
+
+typedef enum {
+    GET_OPTS_STATE_SWITCH,
+    GET_OPTS_STATE_VALUE
+} get_opts_state_t;
+
+int get_opts (char *argv[], opt_t *opts, int opt_count)
+{
+    int arg_index = 1, opt_index, matched_index;
+    int partial_match_count, exact_match_count;
+    char *char_ptr = argv[arg_index];
+    char *switch_start, *switch_text_start, old_switch_char;
+    opt_flag_t flags = 0;
+    get_opts_state_t state = GET_OPTS_STATE_SWITCH;
+
+    while (char_ptr != NULL && (flags & F_HELP)==0) {
+	/*
+	 * If state == GET_OPTS_STATE_SWITCH, we're at the start of a
+	 * switch, which might be the start of argv[i] or somewhere
+	 * inside it.  Otherwise we're at the start of a value for a
+	 * switch, which is always at the start of argv[i].
+	 */
+	switch_start = char_ptr;
+
+	/*
+	 * A switch should start with a switch character.
+	 */
+	if (state == GET_OPTS_STATE_SWITCH) {
+	    if (!is_switch_char(*char_ptr)) {
+/* FIXME: NLS */
+		fatal(_(0,4,"unknown option (expected a '/'): %s\nUse /? for "
+			"help\n"), switch_start);
+	    }
+	    char_ptr++;
+	} else { /* state == GET_OPTS_STATE_VALUE */
+	    if (is_switch_char(*char_ptr)) {
+/* FIXME: NLS */
+		fatal(_(0,4,"Expected a value after /%s, not another switch\n"
+			"Use /? for help\n"),
+		      opts[matched_index].s);
+	    }
+	}
+
+	/*
+	 * Now get the text of the switch or value - scan for the end of the
+	 * switch.
+	 */
+	switch_text_start = char_ptr;
+	while (*char_ptr != '\0' && !is_switch_char(*char_ptr)) {
+	    char_ptr++;
+	}
+
+	/*
+	 * If we're not at the end of the current argv[] element, we
+	 * need to put a '\0' character at char_ptr so that string
+	 * operations don't see the following argument.
+	 */
+	if (is_switch_char(*char_ptr)) {
+	    old_switch_char = *char_ptr;
+	    *char_ptr = '\0';
+	} else {
+	    old_switch_char = NO_SWITCH_CHAR;
+	}
+
+	if (state == GET_OPTS_STATE_SWITCH) {
+	    strupr(switch_text_start);
+#ifdef DEBUG
+	    printf("%s: argument is [%s]\n", __FUNCTION__, switch_text_start);
+#endif
+
+	    exact_match_count = 0;
+	    partial_match_count = 0;
+	    for (opt_index = 0; opt_index < opt_count; opt_index++) {
+		if (strstr(opts[opt_index].s, switch_text_start)
+		    == opts[opt_index].s) {
+		    /*
+		     * opts[opt_index].s begins with switch_text_start, so
+		     * we check if we have an exact match (the string
+		     * lengths are the same) or a partial one.
+		     * matched_index needs to contain the index into
+		     * opts[] of the matching switch, or one of them if
+		     * there is ambiguity.  An exact match has precedence
+		     * over a partial one, i.e. we set matched_index on an
+		     * exact match regardless of whether there are any
+		     * partial matches, and we only set it on a partial
+		     * match if there haven't been any exact ones.
+		     */
+		    if (strlen(opts[opt_index].s)
+			== strlen(switch_text_start)) {
+			exact_match_count++;
+			matched_index = opt_index;
+#ifdef DEBUG
+			printf("%s: argument is exact match (number %u) for "
+			       "[%s]\n", __FUNCTION__, exact_match_count,
+			       opts[opt_index].s);
+#endif
+		    } else {
+			partial_match_count++;
+			if (exact_match_count == 0) {
+			    matched_index = opt_index;
+			}
+#ifdef DEBUG
+			printf("%s: argument is partial match (number %u) for "
+			       "[%s]\n", __FUNCTION__, partial_match_count,
+			       opts[opt_index].s);
+#endif
+		    }
+		}
+	    }
+
+	    /*
+	     * Now figure out if we had ambiguity or no match at all.  The
+	     * normal cases are exact_match_count == 1 (in which case we
+	     * don't care if there were any partial matches) or
+	     * exact_match_count == 0 && partial_match_count == 1
+	     * (i.e. the user's input was a partial match for only one
+	     * switch).
+	     */
+	    if (exact_match_count > 1) {
+		/*
+		 * This is a bug - there shouldn't be two options with the
+		 * same text in opts[]!
+		 */
+/* FIXME: NLS */
+		fatal(_(0,4,"Internal error: option '%s' was an exact match "
+			"for two different switches\n"), switch_start);
+	    } else if (exact_match_count == 0) {
+		if (partial_match_count > 1) {
+/* FIXME: NLS */
+		    fatal(_(0,4,"Error: option '%s' is ambiguous - it is a "
+			    "partial match for two different switches\n"),
+			  switch_start);
+		}
+		if (partial_match_count == 0) {
+		    fatal(_(0,4,"unknown option: %s\nUse /? for help\n"),
+			  switch_start);
+		}
+	    }
+	    /*
+	     * We had only one exact match or no exact match but one
+	     * partial match.  In either case, matched_index will be set.
+	     */
+#ifdef DEBUG
+	    printf("%s: resolved to: [%s]\n", __FUNCTION__,
+		   opts[matched_index].s);
+#endif
+	    flags |= opts[matched_index].flag;
+
+	    /*
+	     * If value is not NULL, then on the next iteration through this
+	     * loop we need to get a value for the switch.
+	     */
+	    if (opts[matched_index].value != NULL) {
+#ifdef DEBUG
+		printf("%s: expecting a value for this switch\n",
+		       __FUNCTION__);
+#endif
+		state = GET_OPTS_STATE_VALUE;
+	    }
+	} else { /* state == GET_OPTS_STATE_VALUE */
+#ifdef DEBUG
+	    printf("%s: got switch value [%s]\n", __FUNCTION__, switch_start);
+#endif
+	    *(opts[matched_index].value) = xstrdup(switch_start);
+	    state = GET_OPTS_STATE_SWITCH;
+	}
+
+	if (old_switch_char == NO_SWITCH_CHAR) {
+	    /*
+	     * *char_ptr was originally '\0' so move to next argv[] element.
+	     */
+            arg_index++;
+            char_ptr = argv[arg_index];
+        } else {
+	    /*
+	     * *char_ptr was originally a switch character, so restore it and
+	     * continue through the loop to process the next switch in this
+	     * argv[] element.
+	     */
+	    *char_ptr = old_switch_char;
+	}
+    }
+
+    /*
+     * If we are still in this state, it means we failed to get the required
+     * value.
+     */
+    if (state == GET_OPTS_STATE_VALUE) {
+/* FIXME: NLS */
+	fatal(_(0,4,"Expected a value after /%s\n"
+		"Use /? for help\n"),
+	      opts[matched_index].s);
+    }
+
+    return (flags);
+}
 
 int main(int argc, char *argv[])
 {
-    uchar flags = 0;
+    opt_flag_t flags;
     UPPERINFO *upper;
     unsigned memfree;
-    int i = 1, j;
-    char *argvi = argv[i];
-    static struct {char c; uchar flag;} optype[] = 
+    static char *module_name = NULL;
+    static opt_t opts[] = 
     {
-      { '?', F_HELP },
-      { 'C', F_CLASSIFY },
-      { 'D', F_DEVICE },
-      { 'E', F_EMS },
-      { 'F', F_FULL },
-      { 'P', F_PAGE },
-      { 'U', F_UPPER },
-      { 'X', F_XMS }
+      { "?",		F_HELP,		NULL },
+      { "ALL",		F_ALL,		NULL },
+      { "C",		F_CLASSIFY,	NULL },
+      { "CLASSIFY",	F_CLASSIFY,	NULL },
+      { "D",		F_DEBUG,	NULL },
+      { "DEBUG",	F_DEBUG,	NULL },
+      { "DEVICE",	F_DEVICE,	NULL },
+      { "EMS",		F_EMS,		NULL },
+      { "F",		F_FULL,		NULL },
+      { "FREE",		F_FREE,		NULL },
+      { "FULL",		F_FULL,		NULL },
+      { "HELP",		F_HELP,		NULL },
+      { "MODULE",	F_MODULE,	&module_name },
+      { "NOSUMMARY",	F_NOSUMMARY,	NULL },
+      { "PAGE",		F_PAGE,		NULL },
+      { "U",		F_UPPER,	NULL },
+      { "XMS",		F_XMS,		NULL }
     };
 
+    /* avoid unused argument warning? */
     argc = argc;
 
     kittenopen("mem");
 
-    while (argvi != NULL && (flags & F_HELP)==0) {
-        char ch = *argvi++;
-        if (ch == '-' || ch == '/')
-            ch = toupper(*argvi);
-        else
-            ch = '/';
-        for (j = 0; j < sizeof(optype)/sizeof(optype[0]); j++) {
-            if (ch == optype[j].c) {
-                flags |= optype[j].flag;
-                break;
-            }
-        }
-        if (j == sizeof(optype)/sizeof(optype[0]))
-            fatal(_(0,4,"unknown option: %s\nUse /? for help\n"), argvi);
-
-        if (*++argvi == '\0')
-        {
-            i++;
-            argvi = argv[i];
-        }
-    }
+    flags = get_opts(argv, &opts, sizeof(opts) / sizeof(opts[0]));
 
     upper=check_upper(make_mcb_list(&memfree));
 
     if (flags & F_PAGE)   num_lines=get_font_info();
+
+/*
+ * FIXME: In MS-DOS, when /M is specified, nothing else is shown.
+ * We need to make sure no other flags are specified!
+ */
+
+    /* FIXME: should probably have /DEBUG determine whether /MODULE includes a subtree of devices */
+
+    if (flags & F_MODULE) {
+	module_list(module_name);
+	return 0;
+    }
+    if (flags & F_FREE) {
+	free_list();
+	return 0;
+    }
+
+    if (flags & F_DEBUG)  debug_list();
     if (flags & F_DEVICE) device_list();
     if (flags & F_EMS)    ems_list();
     if (flags & F_FULL)   full_list();
@@ -1814,6 +2975,7 @@ int main(int argc, char *argv[])
       {
 	printf(_(7, 0, "FreeDOS MEM version %d.%d\n"),
 	       MEM_MAJOR, MEM_MINOR);
+/* FIXME: update valid command-line options */
 	printf("%s\n\n%s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n",
 	_(7, 1, "Displays the amount of used and free memory in your system."),
 	_(7, 2, "Syntax: MEM [/E] [/F] [/C] [/D] [/U] [/X] [/P] [/?]"),
@@ -1828,7 +2990,9 @@ int main(int argc, char *argv[])
 	return 1;
       }
 
-    normal_list(memfree, upper);
+    if (!(flags & F_NOSUMMARY)) {
+        normal_list(memfree, upper, flags & F_ALL, flags & F_DEBUG);
+    }
     return 0;
 }
 
@@ -1841,8 +3005,7 @@ int main(int argc, char *argv[])
 
         so we define some dummy functions here to save some precious bytes :-)
 
-        this is in no way necessary, but saves us some 1500 bytes
-*/
+        this is in no way necessary, but saves us some 1500 bytes */
 
 #ifdef __TURBOC__
 
@@ -1870,3 +3033,5 @@ void _Cdecl _setupio (void){}
 
 #endif
 
+
+/* FIXME: should the sizes shown to the user include sizeof(MCB)?  it seems that we are not consistent in including the size of the MCB between /CLASSIFY and /FULL; in MS-DOS we don't have inconsistency between /C and /F but don't know what they DO do */
