@@ -177,11 +177,21 @@
       or no free upper memory respectively, instead they will explicitly
       indicate that the specified type of memory is not installed/free;
       kitten message 1.6 updated and 1.9 added
+
+    MEM 1.10, 24 August 2006, Eric Auer
+    * applied a patch from Joris van Rantwijk to fix the 386 detection:
+      the old version failed to recognize 8086 as being pre-386
+    * changed the version number display to just use 1 string, and
+      updated the mem.* message files accordingly
+    * fixed the build.bat to make building on Watcom C easier
+    * fixed the memory summary XMS part, made handling more consistent
+    * if XMS total (from BIOS, if nothing found, from XMS) is smaller
+      XMS free, assume that XMS total is equal to XMS free. Avoids
+      negative values for XMS used in DOSEMU :-)
+
 */
 
-#define MEM_MAJOR 1
-#define MEM_MINOR 9
-#define MEM_VER_SUFFIX "a3"
+#define MEM_VERSION "1.10"
 
 /*  Be sure to compile with word alignment OFF !!! */
 #if defined(_MSC_VER)
@@ -203,7 +213,7 @@
 #define getvect _dos_getvect
 #define outportb outp
 #define inportb inp
-#define biosmemory _bios_memsize
+#define biosmemory _bios_memsize /* returns kilobytes */
 #endif
 
 #include <stdio.h>
@@ -233,7 +243,7 @@ typedef unsigned long ulong;
 #define CONV_BYTES_PER_PAGE	16UL
 #define EMS_BYTES_PER_PAGE	16UL*1024UL
 
-#define CONV_BYTES_PER_SEG	64UL
+#define CONV_PARA_PER_KB	64UL /* was "bytes/seg" */
 
 #define BYTES_PER_KB		1024UL
 
@@ -519,7 +529,7 @@ unsigned int last_conv_seg;
 
 void setup_globals(void)
 {
-    last_conv_seg = biosmemory() * CONV_BYTES_PER_SEG;
+    last_conv_seg = biosmemory() * CONV_PARA_PER_KB;
 }
 
 /*
@@ -701,6 +711,7 @@ int is_386_(void);
     "pushf" \
     "pop ax" \
     "or ax, 7000h" \
+    "and ax,7fffh" \
     "push ax"\
     "popf"\
     "pushf"\
@@ -1190,7 +1201,7 @@ static EMSINFO *check_ems(void)
 /* check for 386+ before doing e820 stuff */
 /* load value 0x7000 into FLAGS register */
 /* then check whether all bits are set */
-#define is_386() ((is_386_() & 0x7000) == 0x7000)
+#define is_386() ((is_386_() & 0xf000) == 0x7000)
 
 #define xms_version() (call_xms_driver_bx_ax(0, 0))
 #define xms_hma() ((uchar)(call_xms_driver_dx_bl_al(0, 0)>>16))
@@ -1324,6 +1335,18 @@ static XMSINFO *check_xms(void)
         xms->largest=xms_largest();
     if (!xms->free)
         xms->free=xms_totalfree();
+    /* new 8/2006 */
+    xms->free = 1024UL * xms->free; /* was in kbytes, convert to bytes */
+    xms->largest = 1024UL * xms->largest; /* was in kbytes, convert to bytes */
+    /* dosemu workaround: total (from CMOS) can be < free (from XMS) there */
+    if (xms->total < xms->free) {
+#ifdef DEBUG
+        if (dbgcpu) {
+            printf("check_xms: more XMS free than XMS/int15 total: %lu > %lu\n", xms->free, xms->total);
+        }
+#endif
+        xms->total = xms->free;
+    }
     return(xms);
 }
 
@@ -2193,6 +2216,7 @@ static void print_normalized_ems_size(unsigned n)
     convert(_(1,2,"(%s bytes)\n"), n * 16384L);
 }
 
+/* input is in kilobytes! */
 static void print_normal_entry(char *text, unsigned long total, 
 			       unsigned long used, unsigned long free)
 {
@@ -2319,10 +2343,8 @@ static void int_15_info(void)
     ulong result = get_ext_mem_size();
 
     if (GET_EXT_MEM_SIZE_OK(result)) {
-	printf("%-38s%3uK", _(2,22,"Memory accessible using Int 15h"),
-	       round_kb(BYTES_PER_KB * GET_EXT_MEM_SIZE_VALUE(result)));
-	convert(_(1,3," (%7s bytes)\n"),
-		(ulong) GET_EXT_MEM_SIZE_VALUE(result) * BYTES_PER_KB);
+	printf("%-36s", _(2,22,"Memory accessible using Int 15h"));
+	print_normalized_ems_size(result);
     } else {
 	printf(_(2,23,"Memory is not accessible using Int 15h (code %02h)\n"),
 	       GET_EXT_MEM_SIZE_ERROR(result));
@@ -2334,7 +2356,7 @@ static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
 {
     unsigned memory, memused, largest_executable, reserved;
     unsigned umbfree = 0, umbtotal = 0;
-    unsigned long xms_total_k;
+    unsigned long xms_total_k, xms_free_k;
     XMSINFO *xms;
     EMSINFO *ems;
 
@@ -2357,8 +2379,8 @@ static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
 	printf("biosmemory\n");
     }
 #endif
-    memory=biosmemory();
-    memfree=round_seg_kb(memfree);
+    memory=biosmemory(); /* in kilobytes */
+    memfree=round_seg_kb(memfree); /* from paras to kilobytes */
     memused=memory - memfree;
     printf("\n");
     printf(_(2,0,"Memory Type        Total       Used       Free\n"));
@@ -2372,12 +2394,13 @@ static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
     reserved = 1024 - memory - umbtotal;
     print_normal_entry(_(2,3,"Reserved"), reserved, reserved, 0);
     xms_total_k = round_kb(xms->total);
-    print_normal_entry(_(2,4,"Extended (XMS)"), xms_total_k, xms_total_k - xms->free,
-		       xms->free);
+    xms_free_k = round_kb(xms->free);
+    print_normal_entry(_(2,4,"Extended (XMS)"), xms_total_k, (xms_total_k - xms_free_k),
+		       xms_free_k);
     printf("----------------  --------   --------   --------\n");
-    print_normal_entry(_(2,5,"Total memory"), 1024 + xms_total_k,
-		       1024 - memfree - umbfree + xms_total_k - xms->free,
-		       memfree + umbfree + xms->free);
+    print_normal_entry(_(2,5,"Total memory"), 1024UL + xms_total_k,
+		       1024 - memfree - umbfree + (xms_total_k - xms_free_k),
+		       memfree + umbfree + xms_free_k);
     printf("\n");
     print_normal_entry(_(2,6,"Total under 1 MB"), 1024 - reserved,
 	   memused + umbtotal - umbfree, memfree + umbfree);
@@ -2779,7 +2802,7 @@ static void ems_list(void)
     ushort i;
     static char handlename_other[9];
     char *handlename, *handlename_sys;
-    static char format[] = "  %-20s";
+    static char format[] = "  %-20s ";
     
     ems=check_ems();
     if (ems==NULL)
@@ -2871,7 +2894,7 @@ static void xms_list(void)
     XMS_HANDLE *handle = NULL;
     ushort i;
     long lhandle;
-    static char format[] = "%-26s";
+    static char format[] = "%-26s ";
     XMS_HANDLE_TABLE far* xmsHanTab;
 
     xms = check_xms();
@@ -2975,7 +2998,7 @@ static void xms_list(void)
     }
 
     printf(format, _(6,4,"XMS version"));
-    printf("%u.%02u \t\t", xms->vermajor, xms->verminor);
+    printf("%u.%02u \t", xms->vermajor, xms->verminor);
     printf(format, _(6,5,"XMS driver version"));
     printf("%u.%02u\n", xms->drv_vermajor, xms->drv_verminor);
     printf(format, _(6,6,"HMA state"));
@@ -3600,8 +3623,7 @@ void show_help(opt_t *opts, int opt_count)
     opt_flag_t flag;
     char *help_str;
 
-    printf(_(7, 0, "FreeDOS MEM version %d.%d%s"),
-	   MEM_MAJOR, MEM_MINOR, MEM_VER_SUFFIX);
+    printf(_(7, 0, "FreeDOS MEM version %s"), MEM_VERSION);
 #ifdef DEBUG
     printf(" DEBUG");
 #endif

@@ -62,6 +62,7 @@ _is_386_:
         pushf
         pop     ax
         or      ax, 0x7000
+	and	ax, 0x7fff
         push    ax
         popf
         pushf

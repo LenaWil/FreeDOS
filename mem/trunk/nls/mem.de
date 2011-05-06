@@ -5,41 +5,26 @@
 0.3:MCB Kette hat loses Ende (kein Z MCB am Ende, sondern %c bei 0x%x).\n
 0.4:/? zeigt Hilfe\n
 0.5:Unbekannte Option: %s\n%s
-# FIXME: to be translated
-0.6:The /NOSUMMARY option was specified, but no other output-producing options\nwere specified, so no output is being produced.\n%s
-# FIXME: to be translated
-0.7:Fatal error: failed to free HMA, error code %02Xh\n
-# FIXME: to be translated
-0.8:unknown option (expected a '/'): %s\n%s
-# FIXME: to be translated
-0.9:Expected a value after /%s, not another switch\n%s
-# FIXME: to be translated
-0.10:Internal error: option '%s' has '%s' as a prefix\nplus another equal-length prefix
-# FIXME: to be translated
-0.11:Internal error: option '%s' was an exact match for two\ndifferent switches\n
-# FIXME: to be translated
-0.12:Error: option '%s' is ambiguous - it is a partial match for two\nor more different options\n%s
-# FIXME: to be translated
-0.13:Expected a value after /%s\n%s
-# FIXME: to be translated
-0.14:Invalid option '%s': you must specify at least one letter of the\noption name
+0.6:NOSUMMARY war die einzige Option, also wird kein Text angezeigt.\n%s
+0.7:HMA kann nicht freigegeben werden, Fehler %02Xh\n
+0.8:Unbekannte Option, '/' erwartet: %s\n%s
+0.9:Parameter nach /%s fehlt\n%s
+0.10:Interner Fehler: Optionsnamen '%s' und '%s' fangen gleich an\n
+0.11:Interner Fehler: Option '%s' ist eine mehrdeutige AbkÅrzung\n
+0.12:Fehler: Option '%s' ist mehrdeutig -\n%s
+0.13:Wert erwartet nach /%s\n%s
+0.14:UngÅltige Option '%s': mindestens ein Buchstabe muss angegeben werden
 # misc messages
 1.0:Unbekanntes Betriebssystem
 1.1:%lu bytes\n
 1.2:(%s bytes)\n
 1.3: (%7s bytes)\n
-# FIXME: to be translated
-1.4:Warning: device appears to be owned by multiple memory blocks (%s\nand %s)\n
-# FIXME: to be translated
-1.5:(no drv)
-# FIXME: to be translated
-1.6:No %s Memory is free\n
-# FIXME: to be translated
-1.7:%s is not currently in memory.\n
-# FIXME: to be translated
-1.8:%s is using the following memory:\n
-# FIXME: to be translated
-1.9:%s Memory is not accessible\n
+1.4:Achtung: GerÑt gehîrt scheinbar mehreren Speicherblîcken (%s\nund %s)\n
+1.5:(kein Lw)
+1.6:Kein %s Speicher frei\n
+1.7:%s ist nicht geladen.\n
+1.8:%s verwendet folgenden Speicher:\n
+1.9:%s Speicher nicht zugÑnglich\n
 # memory types
 2.0:Speicherart        Total      Belegt      Frei\n
 #   ----------------  --------   --------   --------
@@ -54,30 +39,18 @@
 2.9:Grîsstes ausfÅhrbares Programm
 2.10:Grîsster freier UMB
 2.11:%s verwendet die HMA.\n
-# FIXME: to be translated
-2.12:Available space in High Memory Area
-# FIXME: to be translated
-2.13:HMA is available via the XMS driver\n
-# FIXME: to be translated
-2.14:HMA is not available via the XMS driver: not implemented by the driver\n
-# FIXME: to be translated
-2.15:HMA is not available via the XMS driver: a VDISK device is present\n
-# FIXME: to be translated
-2.16:HMA is not available via the XMS driver: HMA does not exist\n
-# FIXME: to be translated
-2.17:HMA is not available via the XMS driver: HMA already in use\n
-# FIXME: to be translated
-2.18:HMA is not available via the XMS driver: HMAMIN is larger than HMA\n
-# FIXME: to be translated
-2.19:HMA is available via the XMS driver, minimum TSR size (HMAMIN): %u bytes\n
-# FIXME: to be translated
-2.20:HMA is not available via the XMS driver: unknown error %02Xh\n
-# FIXME: to be translated
-2.21:HMA is not available as no XMS driver is loaded\n
-# FIXME: to be translated
-2.22:Memory accessible using Int 15h
-# FIXME: to be translated
-2.23:Memory is not accessible using Int 15h (code %02h)\n
+2.12:Freier Speicher in der High Memory Area
+2.13:HMA ist Åber den XMS Treiber zugÑnglich\n
+2.14:XMS Treiber gibt keinen Zugang zur HMA\n
+2.15:HMA kann nicht verwendet werden: VDISK aktiv\n
+2.16:Keine HMA vorhanden\n
+2.17:HMA ist schon belegt und darum nicht fÅr TSRs verwendbar\n
+2.18:HMA kann nicht von TSRs verwendet werden: HMA kleiner als HMAMIN\n
+2.19:HMA kann von TSRs verwendet werden, HMAMIN: %u Bytes\n
+2.20:HMA kann nicht verwendet werden: XMS Treiber Fehler %02Xh\n
+2.21:HMA kann nicht verwendet werden: Kein XMS Treiber geladen\n
+2.22:Int 15h Speicher
+2.23:Kein Int 15h Speicher (Fehler %02h)\n
 # block types
 3.0:
 3.1:frei
@@ -87,18 +60,13 @@
 3.5:Umgebung
 3.6:Daten
 3.7:reserviert
-# FIXME: to be translated
-3.8:interrupt vector table
-# FIXME: to be translated
-3.9:BIOS data area
-# FIXME: to be translated
-3.10:system data
+3.8:Interrupt Vektor Tabelle
+3.9:BIOS Daten
+3.10:Systemdaten
 3.11:Treiber
-# FIXME: to be translated
-3.12:data area
+3.12:Daten
 3.13:IFS
-# FIXME: to be translated
-3.14:(error)
+3.14:(Fehler)
 # classify msgs
 4.0:\nModule im ersten MB:\n\n
 4.1:  Name           Total         Konventioneller    Oberer Speicher\n
@@ -113,16 +81,11 @@
 #     -------  ----------------
 #            ----------------
 4.7:Total:
-# FIXME: to be translated
-4.8:system device driver\n
-# FIXME: to be translated
-4.9:installed DEVICE=%s\n
-# FIXME: to be translated
-4.10:%s Memory Detail:\n
-# FIXME: to be translated
-4.11:Free %s Memory:\n
-# FIXME: to be translated
-4.12: (%u in this block)
+4.8:Systemtreiber\n
+4.9:GerÑtetreiber: DEVICE=%s\n
+4.10:%s Speicher Details:\n
+4.11:Freier %s Speicher:\n
+4.12: (%u in diesem Block)
 # EMS stuff
 5.0:Interner EMS Fehler.\n
 5.1: Kein EMS Treiber geladen.\n
@@ -156,43 +119,32 @@
 6.17:Grîsster oberer Speicherblock
 6.18:Keine UMBs verfÅgbar\n
 # help message
-7.0:FreeDOS MEM Version %d.%d%s
+7.0:FreeDOS MEM Version %s
 7.1:Zeigt Informationen zur Speicherbelegung im System.
-# FIXME: to be translated
-7.2:Syntax: MEM [zero or more of the options shown below]
+7.2:Syntax: MEM [eine oder mehrere der folgenden Optionen]
 7.3:/E          Zeigt Informationen Åber Expanded Memory (EMS)
 7.4:/FULL       Liste aller Speicherblîcke
 7.5:/C          Klassifiziert die Module im ersten MB
 7.6:/DEVICE     Liste aller GerÑtetreiber
-7.7:/U          Liste der Programme im konventionellen und oberen Speicher
+7.7:/U          Liste aller Programme
 7.8:/X          Zeigt Informationen Åber Extended Memory (XMS)
 7.9:/P          Wartet nach jedem Bildschirm voll Text auf einen Tastendruck
 7.10:/?          Zeigt diesen Hilfetext
+7.11:/DEBUG      Liste aller Programme und Treiber
+7.12:/M <Name> | /MODULE <Name>\n            Liste von einem Programm oder Treiber verwendeter Speicherbereiche
+7.13:/FREE       Liste freier Speicherbereiche
+7.14:/ALL        Zeige Details Åber die High Memory Area (HMA)
+7.15:/NOSUMMARY  Zeige keine Zusammenfassung an
+7.16:/SUMMARY    Ignoriere eine eventuelle /NOSUMMARY Option
+7.17:/%-10s Keine Beschreibung verfÅgbar fÅr diese Option\n
+7.18:/OLD        Verwende Optionsnamen von FreeDOS MEM 1.7 beta
+7.19:/D          Wie /DEBUG, bzw. wie /DEVICE im /OLD Modus
 # FIXME: to be translated
-7.11:/DEBUG      Show programs and devices in conventional and upper memory
-# FIXME: to be translated
-7.12:/M <name> | /MODULE <name>\n            Show memory used by the given program or driver
-# FIXME: to be translated
-7.13:/FREE       Show free conventional and upper memory blocks
-# FIXME: to be translated
-7.14:/ALL        Show all details of high memory area (HMA)
-# FIXME: to be translated
-7.15:/NOSUMMARY  Do not show the summary normally displayed when no other\n            options are specified
-# FIXME: to be translated
-7.16:/SUMMARY    Negates the /NOSUMMARY option
-# FIXME: to be translated
-7.17:/%-10s No help is available for this option\n
-# FIXME: to be translated
-7.18:/OLD        Compatability with FreeDOS MEM 1.7 beta
-# FIXME: to be translated
-7.19:/D          Same as /DEBUG by default, same as /DEVICE if /OLD used
-# FIXME: to be translated
-7.20:/F          Same as /FREE by default, same as /FULL if /OLD used
+7.20:/F          Wie /FREE, bzw. /FULL im /OLD Modus
 8.0:\nMit <Enter> nÑchsten Schirm anzeigen oder mit <Esc> abbrechen . . .
 # Memory type names
-# FIXME: to be translated
-9.0:Conventional
-# FIXME: to be translated
-9.1:Upper
-# FIXME: to be translated
-9.2:(error)
+9.0:konventioneller
+9.1:oberer
+9.2:(sonstiger)
+
+

@@ -120,7 +120,7 @@
 6.17:Largest upper block
 6.18:Upper memory not available\n
 # help message
-7.0:FreeDOS MEM version %d.%d%s
+7.0:FreeDOS MEM version %s
 7.1:Displays the amount of used and free memory in your system.
 7.2:Syntax: MEM [zero or more of the options shown below]
 7.3:/E          Reports all information about Expanded Memory

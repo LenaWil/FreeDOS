@@ -156,7 +156,7 @@
 6.17:Bloque de memoria superior m s grande
 6.18:No hay memoria superior disponible\n
 # help message
-7.0:FreeDOS MEM versi¢n %d.%d%s
+7.0:FreeDOS MEM versi¢n %s
 7.1:Muestra la cantidad de memoria ocupada y libre del sistema.
 # FIXME: to be translated
 7.2:Sintaxis: MEM [zero or more of the options shown below]

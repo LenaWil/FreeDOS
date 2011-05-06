@@ -27,6 +27,8 @@ EMM386 to simulate expanded memory, that memory appears in these two values.
 Available XMS memory is memory managed by an extended-memory manager such as
 HIMEM.SYS, and available to programs that can use it.
 
-Known bugs
-----------
-See the bugs.txt file.
+Known bugs and reporting bugs
+-----------------------------
+
+See http://wiki.fdos.org/Main/Mem and http://www.freedos.org/freedos/bugs
+

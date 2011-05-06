@@ -158,7 +158,7 @@
 6.17:Max blocco libero (UMB)
 6.18:\nMemoria superiore (UMB) non disponibile\n
 # help message
-7.0:FreeDOS MEM versione %d.%d%s
+7.0:FreeDOS MEM versione %s
 7.1:Visualizza l'ammontare di memoria usata e libera nel sistema.
 # FIXME: to be translated
 7.2:Syntassi: MEM [zero or more of the options shown below]

@@ -1,8 +1,11 @@
 @echo off
 
-REM for OpenWatcom (note the space is needed after the /f):
+REM for OpenWatcom (note the space is needed after the -f):
+REM NOTE that freecom removes trailing spaces from SET commands :-p
+REM do not forget to set the WATCOM and INCLUDE env variables,
+REM like WATCOM=c:\watcom and INCLUDE=c:\watcom\h
 set MAKE=wmake -z
-set MAKE_F=/f 
+set MAKE_F=-f 
 
 REM for Turbo C++ (no space needed after -f):
 REM set MAKE=make
@@ -11,7 +14,7 @@ REM set MAKE_F=-f
 REM First, we need to make sure nls.mak is up-to-date because the main
 REM makefile includes it and it's too late to update it once it's read.
 echo %0: updating MKFILES\NLS.MAK
-%MAKE% %MAKE_F%mkfiles\makenls.mak
+%MAKE% %MAKE_F% mkfiles\makenls.mak
 
 REM This fails to catch the error with OpenWatcom 1.3's make as it must
 REM not set the errorlevel.

@@ -156,7 +156,7 @@
 6.17:Grootste bovenblok
 6.18:Bovengeheugen niet beschikbaar\n
 # help message
-7.0:FreeDOS MEM versie %d.%d%s
+7.0:FreeDOS MEM versie %s
 7.1:Laat de hoeveelheid gebruikt en vrij geheugen in uw systeem zien.
 # FIXME: to be translated
 7.2:Syntaxis: MEM [zero or more of the options shown below]
