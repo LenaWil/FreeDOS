@@ -27,7 +27,7 @@
 0.14:Invalid option '%s': you must specify at least one letter of the\noption name
 # misc messages
 1.0:Un sistema operativo sconosciuto
-1.1:%lu byte\n
+1.1:%s byte\n
 1.2:(%s byte)\n
 1.3: (%7s byte)\n
 # FIXME: to be translated
@@ -79,7 +79,7 @@
 # FIXME: to be translated
 2.22:Memory accessible using Int 15h
 # FIXME: to be translated
-2.23:Memory is not accessible using Int 15h (code %02h)\n
+2.23:Memory is not accessible using Int 15h (code %02xh)\n
 # block types
 3.0:
 3.1:libero
@@ -128,7 +128,7 @@
 # EMS stuff
 5.0:ERRORE INTERNO EMS.\n
 5.1:Driver EMS non installato nel sistema.\n
-5.2:\nDriver EMS versione
+5.2:Driver EMS versione
 5.3:EMS page frame
 5.4:Memoria EMS totale
 5.5:Memoria EMS libera

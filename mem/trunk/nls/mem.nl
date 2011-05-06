@@ -25,7 +25,7 @@
 0.14:Invalid option '%s': you must specify at least one letter of the\noption name
 # misc messages
 1.0:Een onbekend besturingssysteem
-1.1:%lu bytes\n
+1.1:%s bytes\n
 1.2:(%s bytes)\n
 1.3: (%7s bytes)\n
 # FIXME: to be translated
@@ -77,7 +77,7 @@
 # FIXME: to be translated
 2.22:Memory accessible using Int 15h
 # FIXME: to be translated
-2.23:Memory is not accessible using Int 15h (code %02h)\n
+2.23:Memory is not accessible using Int 15h (code %02xh)\n
 # block types
 3.0:
 3.1:vrij
@@ -126,7 +126,7 @@
 # EMS stuff
 5.0:EMS INTERNE FOUT.\n
 5.1:  EMS stuurprogramma niet geinstalleerd in het systeem.\n
-5.2:\nEMS stuurprogramma versie
+5.2:EMS stuurprogramma versie
 5.3:EMS pagina lijst
 5.4:Totaal EMS-geheugen
 5.5:Vrij EMS-geheugen

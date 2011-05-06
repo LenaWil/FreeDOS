@@ -104,7 +104,7 @@ _get_ext_mem_size:
 	mov	ah, 0x88
 ;;; FIXME: need to save registers first?
 	int	15h
-	xor	dx, dx
+	mov	dx, 0	; do not use xor here, it would modify flags
 	jnc	success
 	mov	dx, 1
  success:
