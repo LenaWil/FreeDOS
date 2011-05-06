@@ -96,3 +96,15 @@ _check_e820:
 	pop	si
 	pop	di
 	ret
+
+; ulong get_ext_mem_size(void)
+global _get_ext_mem_size
+_get_ext_mem_size:
+	mov	ah, 0x88
+;;; FIXME: need to save registers first?
+	int	15h
+	xor	dx, dx
+	jnc	success
+	mov	dx, 1
+ success:
+	ret

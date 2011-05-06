@@ -12,34 +12,48 @@
 #
 # for Watcom: make sure it's setup correctly
 
+
+#FIXME: make a separate target MEMDBG.EXE with -DDEBUG
+#FIXME: don't commit this file with the modified flags to OpenWatcom
+#       to enable debugging symbols
+
 #for WATCOM
-CC	= wcl
-CFLAGS  = -c -j -wx -ms -oahls -s -d1
-LFLAGS  = -fm -"option statics"
-MEMSUPT =
+#CC  = wcl
+#CFLAGS  = -c -j -wx -ms -oahls -s -d2
+#LFLAGS  = -fm -"option statics" -"debug all"
+#MEMSUPT =
 ##for Turbo
-#CC	= tcc
-#CFLAGS  = -c -w -ms -a- -k- -N- -d -O -O2
-#LFLAGS  = -ms -M
-#MEMSUPT = memsupt.obj
+CC = tcc
+CFLAGS  = -f -c -w -ms -a- -k- -N- -d -O -O2
+LFLAGS  = -ms -M -l3
+MEMSUPT = memsupt.obj
+
+all: mem.exe memtest.exe
+
+# Watcom Make doesn't need quotes but Turbo Make does
+!include "nlsbin.mak"
 
 mem.exe: mem.obj prf.obj kitten.obj $(MEMSUPT)
-	$(CC) $(LFLAGS) mem.obj prf.obj kitten.obj $(MEMSUPT)
-	upx --8086 --best mem.exe
+    $(CC) $(LFLAGS) mem.obj prf.obj kitten.obj $(MEMSUPT)
+    upx --8086 --best mem.exe
+
+memtest.exe: memtest.obj
+    $(CC) $(LFLAGS) memtest.obj
 
 .c.obj:
-	$(CC) $(CFLAGS) $<
+    $(CC) $(CFLAGS) $<
 
 .asm.obj:
-	nasm -fobj $*.asm
+    nasm -fobj $*.asm
 
 clean:
-	del *.obj
-	del *.map
+    del *.obj
+    del *.map
 
 distclean: clean
-	del mem.exe
+    del mem.exe
+    del memtest.exe
 
 dist: mem.exe
-	copy mem.exe ..\..\bin
-	del mem.exe
+    copy mem.exe ..\..\bin
+    del mem.exe

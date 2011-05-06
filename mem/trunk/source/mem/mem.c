@@ -70,10 +70,46 @@
     * try to detect UMB holes and don't count them as upper memory
     * display UMB holes as "reserved" in mem/f output
     * display version for "mem/?"
+
+
+    MEM 1.7 beta, FIXME:what date?, Bart Oldeman
+    FIXME: reverse-engineer changelog
+
+    MEM 1.8 (alpha 1), FIXME:what date?, David O'Shea
+    FIXME: reverse-engineer changelog
+    * make malloc() cause a fatal error if its buffer is full
+
+    MEM 1.9a2 (alpha 2), FIXME:what date?, David O'Shea
+    FIXME: reverse-engineer changelog
+    * replace minfo_typenames[] array and accesses to it with a function 
+      containing a switch statement so we never have to pass a variable
+      argument to the _() macro and hence so that MUSCHI works
+    * classify_list() used to treat ml->seg as the amount of "SYSTEM" memory
+      in pages before the first MINFO, but now there are actually a number of
+      MINFO entries for all the reserved memory blocks, e.g. MT_IVT and
+      MT_BDA, which are explicitly counted in classify_system()
+    * correct malloc() to return NULL instead of trigering a fatal error in
+      case of its buffer being full; allocators that want to have a fatal
+      error triggered in case of insufficient memory can (and do) call
+      xmalloc()
+    * kitten-ize strings added in 1.8 alpha 1
+    * a MEM.EXE compiled with -DDEBUG will no longer unconditionally
+      print all debugging information, instead providing command-line
+      options for the different debug flags (which start with /DBG);
+      note that you can't debug the command-line parser code this way
+      because you obviously need to have completed at least part of
+      the parse to know that the option to debug it was specified, but
+      you could add such a command-line option which, after parsing,
+      causes flags to be reset to 0 and the parsing code to be
+      re-invoked with debugging enabled
+    * change method of generation of the help output so that new flags
+      cannot be accidentally left undocumented in this output
+
 */
 
 #define MEM_MAJOR 1
-#define MEM_MINOR 8
+#define MEM_MINOR 9
+#define MEM_VER_SUFFIX "a2"
 
 /*  Be sure to compile with word alignment OFF !!! */
 #if defined(_MSC_VER)
@@ -125,7 +161,10 @@ typedef unsigned long ulong;
 #define CONV_BYTES_PER_PAGE	16UL
 #define EMS_BYTES_PER_PAGE	16UL*1024UL
 
+#define CONV_BYTES_PER_SEG	64UL
+
 #define BYTES_PER_KB		1024UL
+
 
 /* Types for MINFO.type */
 #define MT_NONE    0
@@ -146,25 +185,12 @@ typedef unsigned long ulong;
 #define MT_DOSDATA 12
 #define MT_IFS     13
 
-/* FIXME: NLS the new entries */
-static char *minfo_typenames[] = {
-    "",
-    "free",
-    "system code",
-    "system data",
-    "program",
-    "environment",
-    "data area",
-    "reserved",
-    "interrupt vector table",
-    "BIOS data area",
-    "system data",
-    "device driver",
-    "data area",
-    "IFS"
-};
-
+#ifdef MUSCHI
+#include "muschi.c"
+#define _(set,message_number,message) kittengets(set,message_number,muschi_ ## set ## _ ## message_number)
+#else
 #define _(set,message_number,message) kittengets(set,message_number,message)
+#endif
 
 int num_lines = -1;
 
@@ -269,7 +295,7 @@ typedef struct minfo
     ushort environment;
     char *name;
     ushort size;
-    uchar classified;
+    uchar classified; /* flag set to TRUE when entry processed for /C */
 #if 0 /* presently unused */
     uchar vecnum;
     uchar *vectors;
@@ -414,9 +440,30 @@ typedef void far (*xms_drv_t)(void);
 void far (*xms_drv)(void);
 
 /*
+ * The last segment address that is in conventional memory.
+ */
+unsigned int last_conv_seg;
+
+void setup_globals(void)
+{
+    last_conv_seg = biosmemory() * CONV_BYTES_PER_SEG;
+}
+
+/*
  * What xms_available() returns if XMS is available.
  */
 #define XMS_AVAILABLE_RESULT 0x80
+
+/*
+ * Return values from assembler function get_ext_mem_size().
+ */
+#define GET_EXT_MEM_SIZE_OK(result)	((result >> 16) == 0)
+#define GET_EXT_MEM_SIZE_VALUE(result)	(result)
+#define GET_EXT_MEM_SIZE_ERROR(result)	((result & 0xFF00) >> 8)
+
+#define GET_EXT_MEM_SIZE_ERROR_INVALID_CMD	0x80
+#define GET_EXT_MEM_SIZE_ERROR_UNSUPPORTED	0x86
+
 
 #ifdef PRAGMAS
 
@@ -610,7 +657,6 @@ ulong check_e820(struct e820map far *e820map, ulong counter);
      ".8086" \
 parm [es di] [bx ax] value [bx ax] modify [si];
 
-/* FIXME: make NASM version */
 /*
  * Get the extended memory size.  Ralf Brown's Interrupt List notes that
  * some BIOSes don't properly set the carry flag on failure.  If this
@@ -629,14 +675,6 @@ ulong get_ext_mem_size(void);
     "mov dx, 1"					\
 "success:"					\
 value [dx ax];
-
-/* FIXME: put this where NASM version can use it */
-#define GET_EXT_MEM_SIZE_OK(result)	((result >> 16) == 0)
-#define GET_EXT_MEM_SIZE_VALUE(result)	(result)
-#define GET_EXT_MEM_SIZE_ERROR(result)	((result & 0xFF00) >> 8)
-
-#define GET_EXT_MEM_SIZE_ERROR_INVALID_CMD	0x80
-#define GET_EXT_MEM_SIZE_ERROR_UNSUPPORTED	0x86
 
 #else
 
@@ -788,6 +826,7 @@ extern ulong cdecl call_xms_driver_edx(unsigned char rah, ushort rdx);
 extern ulong cdecl call_xms_driver_eax(unsigned char rah, ushort rdx);
 extern int cdecl is_386_(void);
 extern ulong cdecl check_e820(struct e820map far *e820map, ulong counter);
+extern ulong cdecl get_ext_mem_size(void);
 
 static unsigned check_8800(void)
 {
@@ -854,6 +893,14 @@ char *getenv(const char *name)
 }
 #endif
 
+#ifdef DEBUG
+/*
+ * Debug flags set on the command-line.
+ */
+int dbgdevaddr;
+int dbghmamin;
+#endif
+
 #define MALLOC_BUFFER_SIZE 30000
 static char malloc_buffer[MALLOC_BUFFER_SIZE];
 static size_t mbuffer_idx;
@@ -865,8 +912,7 @@ void *malloc(size_t size)
     char *ret = &malloc_buffer[mbuffer_idx];
 
     if (mbuffer_idx + size > MALLOC_BUFFER_SIZE) {
-/* FIXME: NLS */
-	fatal(_(0,2,"Out of memory!\n"));
+        return NULL;
     }
     mbuffer_idx += size;
     return ret;
@@ -1187,7 +1233,6 @@ static UPPERINFO *check_upper(MINFO *mlist)
 {
     static UPPERINFO *upper = NULL;
     uchar origlink;
-    ushort lastconseg;
 
     if (upper!=NULL)
         return upper;
@@ -1208,16 +1253,15 @@ static UPPERINFO *check_upper(MINFO *mlist)
 	}
 
     upper = xcalloc(1, sizeof(UPPERINFO));
-    lastconseg = biosmemory()*64;
     /* assert(mlist!=NULL) -- comes from make_mcb_list */
     for (;;) {
         unsigned short seg = mlist->seg;
-        if (seg == lastconseg)
+        if (seg == last_conv_seg)
             break;
         mlist=mlist->next;
         if (mlist==NULL) {
             fatal(_(0,2,"UMB Corruption: Chain doesn't reach top of low RAM at %dk. Last=0x%x.\n"),
-                lastconseg/64, seg);
+                last_conv_seg/64, seg);
         }
     }
 
@@ -1243,9 +1287,30 @@ static void print_minfo_name_default(MINFO *entry)
     printf("%-8s", entry->name);
 }
 
+char *minfo_typename(int type)
+{
+    switch (type) {
+    case MT_NONE:	return (_(3,0,""));
+    case MT_FREE:	return (_(3,1,"free"));
+    case MT_SYSCODE:	return (_(3,2,"system code"));
+    case MT_SYSDATA:	return (_(3,3,"system data"));
+    case MT_PROGRAM:	return (_(3,4,"program"));
+    case MT_ENV:	return (_(3,5,"environment"));
+    case MT_DATA:	return (_(3,6,"data area"));
+    case MT_RESERVED:	return (_(3,7,"reserved"));
+    case MT_IVT:	return (_(3,8,"interrupt vector table"));
+    case MT_BDA:	return (_(3,9,"BIOS data area"));
+    case MT_KERNEL:	return (_(3,10,"system data"));
+    case MT_DEVICE:	return (_(3,11,"device driver"));
+    case MT_DOSDATA:	return (_(3,12,"data area"));
+    case MT_IFS:	return (_(3,13,"IFS"));
+    default:		return (_(3,14,"(error)"));
+    }
+}
+
 static void print_minfo_type_default(MINFO *entry)
 {
-    printf("%s", _(3,entry->type,minfo_typenames[entry->type]));
+    printf("%s", minfo_typename(entry->type));
 }
 
 static void print_minfo_type_stacks(MINFO *entry)
@@ -1291,6 +1356,23 @@ static MINFO *new_minfo(void)
     entry->print_name = print_minfo_name_default;
     entry->print_type = print_minfo_type_default;
     return (entry);
+}
+
+/*
+ * Obviously MCBs that are actually free should be shown as such, but we also
+ * show our own MCB as free because the user isn't too interested in how much
+ * memory MEM takes.  Note that MEM /DEBUG or MEM /FULL should still show
+ * MEM in their output, but MEM /FREE should show MEM's block as free and
+ * the plain MEM output should include MEM's own MCB in the free memory total.
+ */
+int show_minfo_as_free(MINFO *entry)
+{
+    return (entry->type == MT_FREE || (entry->seg + 1 == _psp));
+}
+
+int filter_free(MINFO *entry, void *data)
+{
+    return (show_minfo_as_free(entry));
 }
 
 #define is_psp(mcb) (*(ushort far*)MK_FP(mcb+1, 0) == 0x20CD)
@@ -1345,8 +1427,10 @@ static void sd_stacks(MINFO *mlist)
      * FreeDOS doesn't set up the beginning of the STACKS code segment in
      * the way that MS-DOS does.
      */
-/* FIXME: for FreeDOS, need to show STACKS in type column instead of
- * name since we do that for MS-DOS where we show STACKS=x,y.
+/*
+ * FIXME: for FreeDOS, need to show STACKS in type column instead of
+ * name since we do that for MS-DOS where we show STACKS=x,y but for FreeDOS
+ * we don't know what x and y are.
  */
     if (get_oem_number() != OEM_FREEDOS) {
 	stacks = MK_FP(mlist->seg, 0);
@@ -1396,7 +1480,10 @@ static void sd_lastdrive(MINFO *mlist)
 
     specific = xmalloc(sizeof(LASTDRIVEINFO));
     mlist->name = "LASTDRV";
-/* FIXME: offset is 1Bh for DOS 3.0; doesn't exist in previous versions */
+/*
+ * FIXME: offset into list of lists is different (1Bh) for DOS 3.0 and
+ * doesn't exist in previous versions.
+ */
     specific->count = * (uchar far *) (dos_list_of_lists() + 0x21);
     mlist->specific = specific;
     mlist->print_type = print_minfo_type_lastdrive;
@@ -1435,7 +1522,8 @@ static MINFO *search_sd(MINFO *parent)
         mlist->owner = mlist->seg = sd->start;
         mlist->size=sd->size;
         mlist->type=MT_DOSDATA;
-	if (type == 'I' && *(unsigned short far *)MK_FP(0, 0x40e) == mlist->seg)
+	if (type == 'I'
+	    && *(unsigned short far *)MK_FP(0, 0x40e) == mlist->seg)
             mlist->name = "EBDA";
 	else if (type == 'D' || (type == 'I' && _osmajor < 7))
             {
@@ -1486,10 +1574,9 @@ static void register_dos_mcb(MINFO *mlist)
         } else {
 	    /* can be either system code or an UMB hole */
 	    unsigned seg = mlist->seg + 1;
-	    unsigned convmemsize = biosmemory()*64;
 	    mlist->type = MT_SYSCODE;
 	    /* no  holes in conv mem */
-	    if (seg == convmemsize || (seg > convmemsize
+	    if (seg == last_conv_seg || (seg > last_conv_seg
 	    /* the heuristic: starts at 512 byte boundary, 
 	       has size a multiple of 512 (32 paragraphs) */
 		&& ((seg & 511) == 0) && ((mlist->size & 31) == 0))) {
@@ -1547,7 +1634,7 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     uchar origlink;
     MINFO *mlist;
     static MINFO *mlistroot = NULL;
-    unsigned freemem, convtopseg;
+    unsigned freemem;
 
     if(mlistroot!=NULL)
 	return(mlistroot);
@@ -1558,9 +1645,11 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
     mlistroot = mlist = new_minfo();
 
     /*
-     * Set up BIOS memory blocks which are always fixed in size and location.  */
+     * Set up BIOS memory blocks which are always fixed in size and location.
+     */
     mlist->seg = FP_SEG(0);
-    mlist->size = 256 * 4 / CONV_BYTES_PER_PAGE; /* num. interrupts * sizeof(far ptr) / para */
+    /* num. interrupts * sizeof(far ptr) / para */
+    mlist->size = 256 * 4 / CONV_BYTES_PER_PAGE;
     mlist->type = MT_IVT;
     mlist->next = new_minfo();
     mlist->next->seg = mlist->size;
@@ -1630,12 +1719,11 @@ static MINFO *make_mcb_list(unsigned *convmemfree)
 
     }
 
-    convtopseg = biosmemory()*64;
     freemem = 0;
 
     /* get free memory */
     for (mlist=mlistroot; mlist!=NULL; mlist=mlist->next) {
-        if (show_minfo_as_free(mlist) && mlist->seg < convtopseg)
+        if (show_minfo_as_free(mlist) && mlist->seg < last_conv_seg)
             freemem += mlist->size + 1;
     }
     
@@ -1669,11 +1757,14 @@ int addr_in_block(void far *addr, MINFO *minfo)
 {
     ulong base = (ulong) minfo->seg * CONV_BYTES_PER_PAGE;
     ulong limit = base + ((ulong) minfo->size) * CONV_BYTES_PER_PAGE;
-    ulong normal_addr = (ulong) FP_SEG(addr) * CONV_BYTES_PER_PAGE + (ulong) FP_OFF(addr);
+    ulong normal_addr = (ulong) FP_SEG(addr) * CONV_BYTES_PER_PAGE
+                        + (ulong) FP_OFF(addr);
 
 #ifdef DEBUG
-    printf("is %05lX in range %05lX(%04X)-%05lX (program %s)\n",
-	   normal_addr, base, minfo->seg, limit, minfo->name);
+    if (dbgdevaddr) {
+	printf("is %05lX in range %05lX(%04X)-%05lX (program %s)\n",
+	       normal_addr, base, minfo->seg, limit, minfo->name);
+    }
 #endif
     return (normal_addr >= base && normal_addr <= limit);
 }
@@ -1684,10 +1775,10 @@ int addr_in_block(void far *addr, MINFO *minfo)
 static void set_dev_minfo(DEVINFO *dlist, MINFO *mlist)
 {
     if (dlist->minfo != NULL) {
-/* FIXME: NLS */
-	printf("Warning: device appears to be owned by multiple "
-	       "memory blocks (%s and %s)\n", mlist->name,
-	       dlist->minfo->name);
+	printf(_(1,4,
+"Warning: device appears to be owned by multiple memory blocks (%s\n"
+"and %s)\n"),
+	       mlist->name, dlist->minfo->name);
 	dlist->next_in_minfo = NULL;
     }
     dlist->minfo = mlist;
@@ -1780,8 +1871,7 @@ static DEVINFO *make_dev_list(MINFO *mlist)
                 }
             else
                 {
-/* FIXME: NLS */
-                strcpy(dlist->devname, "(no drv)");
+                strcpy(dlist->devname, _(1,5,"(no drv)"));
                 }
             }
         }
@@ -1798,39 +1888,146 @@ MINFO *minfo_dup(MINFO *minfo)
     return new_minfo;
 }
 
-typedef int (*mlist_filter_match)(MINFO *entry, void *data);
+typedef enum {
+    memory_conv,
+    memory_upper,
+    memory_num_types
+} memory_t;
 
-MINFO *filter_mlist(MINFO *mlisthead, mlist_filter_match is_match, void *data)
+char *memory_typename(memory_t type)
 {
-    MINFO *filtered_head, *filtered_tail;
+    switch (type) {
+    case memory_conv:	return (_(9,0,"Conventional"));
+    case memory_upper:	return (_(9,1,"Upper"));
+    default:		return (_(9,2,"(error)"));
+    }
+}
 
-    /*
-     * Move mlisthead to the first matching entry.
-     */
-    while (mlisthead != NULL && !is_match(mlisthead, data)) {
+
+/*
+ * Given an MINFO list, split it into two separate MINFO lists, one for blocks
+ * in conventional memory and one for blocks in upper memory.  Returns a
+ * pointer to an array of two MINFOs, indexed by elements of memory_t, i.e.
+ * memory_conv and memory_upper.
+ */
+MINFO **split_mlist_conv_upper(MINFO *mlisthead)
+{
+    MINFO **head;
+    MINFO *tail[memory_num_types];
+    memory_t memory_type;
+
+    head = xcalloc(memory_num_types, sizeof(MINFO *));
+
+    while (mlisthead != NULL) {
+	/*
+	 * Work out if this block is in conventional or upper memory.
+	 */
+	if (mlisthead->seg < last_conv_seg) {
+	    memory_type = memory_conv;
+	} else {
+	    memory_type = memory_upper;
+	}
+
+	/*
+	 * Duplicate the block and put it on the appropriate list.
+	 */
+	if (head[memory_type] != NULL) {
+	    tail[memory_type]->next = minfo_dup(mlisthead);
+	    tail[memory_type] = tail[memory_type]->next;
+	} else {
+	    head[memory_type] = tail[memory_type] = minfo_dup(mlisthead);
+	}
+
 	mlisthead = mlisthead->next;
     }
 
-    if (mlisthead == NULL) {
-	/*
-	 * No entries match the given module name.
-	 */
-	return NULL;
+    /*
+     * Make sure both lists are terminated properly and don't contain links
+     * from the duplicated nodes.
+     */
+    for (memory_type = memory_conv; memory_type < memory_num_types;
+	 memory_type++) {
+	if (head[memory_type] != NULL) {
+	    tail[memory_type]->next = NULL;
+	}
     }
 
-    filtered_head = filtered_tail = minfo_dup(mlisthead);
-    mlisthead = mlisthead->next;
+    return head;
+}
+
+/*
+ * Flags to be ORed together and passed as 'flags' to filter_mlist().
+ */
+#define FILTER_MLIST_NO_FLAGS	0x0000
+
+/*
+ * If this flag is set, then if an MINFO entry matches the filter, all of the
+ * entries below it will be included in the results, otherwise only entries
+ * under it that match the filter will be included.
+ */
+#define FILTER_MLIST_EXPANDED	0x0001
+
+/*
+ * If this flag is set, then even if an MINFO entry doesn't match the
+ * filter, if one or more of its children does match, then the parent
+ * and the matching children are included in the results.
+ */
+#define FILTER_MLIST_SEARCH_CHILDREN 0x0002
+
+
+typedef int (*mlist_filter_match)(MINFO *entry, void *data);
+
+MINFO *filter_mlist(MINFO *mlisthead, int flags, mlist_filter_match is_match,
+		    void *data)
+{
+    MINFO *filtered_head = NULL, *filtered_tail, *filtered_children;
 
     while (mlisthead != NULL) {
-	if (is_match(mlisthead, data)) {
+	if (flags & FILTER_MLIST_SEARCH_CHILDREN) {
+	    filtered_children
+		= filter_mlist(mlisthead->first_child, flags,
+			       is_match, data);
+	} else {
+	    filtered_children = NULL;
+	}
+	/*
+	 * filtered_children will be non-NULL if one or more of the children
+	 * matches the filter and FILTER_MLIST_SEARCH_CHILDREN was specified,
+	 * in which case we need to include the MINFO even if it doesn't
+	 * match the filter itself.
+	 */
+	if (is_match(mlisthead, data) || filtered_children != NULL) {
 	    /*
 	     * Duplicate the MINFO element and put it on the end of the
 	     * filtered list.
 	     */
-	    filtered_tail->next = minfo_dup(mlisthead);
-	    filtered_tail = filtered_tail->next;
+	    if (filtered_head != NULL) {
+		filtered_tail->next = minfo_dup(mlisthead);
+		filtered_tail = filtered_tail->next;
+	    } else {
+		filtered_head = filtered_tail = minfo_dup(mlisthead);
+	    }
+	    if (!is_match(mlisthead, data)) {
+		/*
+		 * In this case we must have flags &
+		 * FILTER_MLIST_SEARCH_CHILDREN.
+		 */
+		filtered_tail->first_child = filtered_children;
+	    } else if ((flags & FILTER_MLIST_EXPANDED) == 0) {
+		/* filter the children too */
+		filtered_tail->first_child
+                    = filter_mlist(filtered_tail->first_child, flags,
+				   is_match, data);
+	    }
 	}
 	mlisthead = mlisthead->next;
+    }
+
+    if (filtered_head == NULL) {
+	/*
+	 * No entries match the given module name.
+	 */
+	return NULL;
     }
 
     /*
@@ -1851,7 +2048,6 @@ int filter_by_module_name(MINFO *entry, void *data)
 /*
  * Filter for /U
  */
-/* FIXME: this shows things like STACKS that should not be included; need an option to filter_mlist which indicates whether we should have an expanded view (i.e. include everything linked under an MINFO that matches the filter) or a collapsed view (only show things that are linked under an MINFO if they also match the filter) where we'd use collapsed for this view but expanded for /MODULE? */
 int filter_upper(MINFO *entry, void *data)
 {
     return (entry->type != MT_NONE
@@ -1904,8 +2100,7 @@ static void show_hma_info(int show_hma_free)
 	if (show_hma_free) {
 	    unsigned int hma_free = dos_hma_free();
 
-/* FIXME: NLS */
-	    printf("%-38s%3uK", _(2,10,"Available space in High Memory Area"),
+	    printf("%-38s%3uK", _(2,12,"Available space in High Memory Area"),
 		   round_kb(hma_free));
 	    convert(_(1,3," (%7s bytes)\n"), hma_free);
 	}
@@ -1923,25 +2118,24 @@ static void show_hma_info(int show_hma_free)
 		 */
 		result = xms_hma_request(1);
 		if (XMS_HMA_AX(result) == XMS_HMA_AX_OK) {
-/* FIXME: NLS */
-		    printf("HMA is available via the XMS driver\n");
+		    printf(_(2,13,"HMA is available via the XMS driver\n"));
 		} else {
 		    switch (XMS_HMA_BL(result)) {
 		    case XMS_HMA_BL_NOT_IMPL:
-/* FIXME: NLS */
-			printf("HMA is not available via the XMS driver: not implemented by the driver\n");
+			printf(_(2,14,
+"HMA is not available via the XMS driver: not implemented by the driver\n"));
 			break;
 		    case XMS_HMA_BL_VDISK:
-/* FIXME: NLS */
-			printf("HMA is not available via the XMS driver: a VDISK device is present\n");
+			printf(_(2,15,
+"HMA is not available via the XMS driver: a VDISK device is present\n"));
 			break;
 		    case XMS_HMA_BL_NOT_EXIST:
-/* FIXME: NLS */
-			printf("HMA is not available via the XMS driver: HMA does not exist\n");
+			printf(_(2,16,
+"HMA is not available via the XMS driver: HMA does not exist\n"));
 			break;
 		    case XMS_HMA_BL_IN_USE:
-/* FIXME: NLS */
-			printf("HMA is not available via the XMS driver: HMA already in use\n");
+			printf(_(2,17,
+"HMA is not available via the XMS driver: HMA already in use\n"));
 			break;
 		    case XMS_HMA_BL_HMAMIN:
 			/*
@@ -1953,8 +2147,10 @@ static void show_hma_info(int show_hma_free)
 			while (high - low > 1) {
 			    test = ((ulong) high + (ulong) low) / 2;
 #ifdef DEBUG
-			    printf("HMAMIN binary search: low=%5u high=%5u "
-				   "test=%5u\n", low, high, test);
+			    if (dbghmamin) {
+				printf("HMAMIN binary search: low=%5u "
+				       "high=%5u test=%5u\n", low, high, test);
+			    }
 #endif
 			    result = xms_hma_request(test);
 			    if (XMS_HMA_AX(result) != XMS_HMA_AX_OK) {
@@ -1963,29 +2159,29 @@ static void show_hma_info(int show_hma_free)
 				high = test;
 				result = xms_hma_release();
 				if (XMS_HMA_AX(result) != XMS_HMA_AX_FAILED) {
-				    /* FIXME: NLS and use fatal function/terminate */
-				    printf("Fatal: failed to free HMA, error "
-					   "code %02Xh\n", XMS_HMA_BL(result));
+				    fatal(_(0,7,
+"Fatal error: failed to free HMA, error code %02Xh\n"), XMS_HMA_BL(result));
 				}
 			    }
 			}
 			if (high == XMS_HMA_SIZE + 1) {
-/* FIXME: NLS */
-			    printf("HMA is not available via the XMS driver: HMAMIN is larger than HMA\n");
+			    printf(_(2,18,
+"HMA is not available via the XMS driver: HMAMIN is larger than HMA\n"));
 			} else {
-/* FIXME: NLS */
-			    printf("HMA is available via the XMS driver; minimum TSR size (HMAMIN) is %u bytes\n", high);
+			    printf(_(2,19,
+"HMA is available via the XMS driver, minimum TSR size (HMAMIN): %u bytes\n"),
+				   high);
 			}
 			break;
 		    default:
-/* FIXME: NLS */
-			printf("HMA is not available via the XMS driver: unknown error %02Xh\n",
+			printf(_(2,20,
+"HMA is not available via the XMS driver: unknown error %02Xh\n"),
 			       XMS_HMA_BL(result));
 		    }
 		}
 	    } else {
-/* FIXME: NLS */
-		printf("HMA is not available as no XMS driver is loaded\n");
+		printf(_(2,21,
+"HMA is not available as no XMS driver is loaded\n"));
 	    }
 	}
     }
@@ -1996,14 +2192,12 @@ static void int_15_info(void)
     ulong result = get_ext_mem_size();
 
     if (GET_EXT_MEM_SIZE_OK(result)) {
-/* FIXME: NLS */
-	printf("%-38s%3uK", _(2,10,"Memory accessible using Int 15h"),
+	printf("%-38s%3uK", _(2,22,"Memory accessible using Int 15h"),
 	       round_kb(BYTES_PER_KB * GET_EXT_MEM_SIZE_VALUE(result)));
 	convert(_(1,3," (%7s bytes)\n"),
 		(ulong) GET_EXT_MEM_SIZE_VALUE(result) * BYTES_PER_KB);
     } else {
-/* FIXME: NLS */
-	printf("Memory is not accessible using Int 15h (code %02h)\n",
+	printf(_(2,23,"Memory is not accessible using Int 15h (code %02h)\n"),
 	       GET_EXT_MEM_SIZE_ERROR(result));
     }
 }
@@ -2065,7 +2259,10 @@ static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
     printf("%-38s%3uK", _(2,9,"Largest executable program size"), round_seg_kb(largest_executable));
     convert(_(1,3," (%7s bytes)\n"), (ulong)largest_executable
 	    * CONV_BYTES_PER_PAGE);
-/* FIXME: this is inconsistent with MS-DOS 6.22 which shows 0K if no UMBs */
+/*
+ * FIXME: this is inconsistent with MS-DOS 6.22 which shows 0K if no
+ * UMBs; we appear to show nothing if no UMBs.
+ */
     if (upper != NULL) {
 	printf("%-38s%3uK", _(2,10,"Largest free upper memory block"), round_seg_kb(upper->largest));
 	convert(_(1,3," (%7s bytes)\n"), (ulong)upper->largest
@@ -2094,7 +2291,7 @@ static void normal_list(unsigned memfree, UPPERINFO *upper, int show_hma_free,
 static void indent_setup(char *pre_indent, char *post_indent,
 			 unsigned int level)
 {
-/* FIXME:assert(level <= MAX_LEVEL);*/
+/* FIXME: assert(level <= MAX_LEVEL);*/
     /* fill buffers with the maximum number of space characters we might
        need */
     memset(pre_indent, ' ', MAX_INDENT_SIZE);
@@ -2167,12 +2364,13 @@ static void print_devinfo_full(DEVINFO *entry, unsigned int level)
     indent_setup(pre_indent, post_indent, level);
 
 /* FIXME: make sure entry->minfo != NULL */
+
+    printf("                             %s%-8s%s",
+	   pre_indent, entry->devname, post_indent);
     if (entry->minfo->type == MT_KERNEL) {
-	printf("                             %s%-8s%ssystem device driver\n",
-	       pre_indent, entry->devname, post_indent);
+	printf(_(4,8,"system device driver\n"));
     } else {
-	printf("                             %s%-8s%sinstalled DEVICE=%s\n",
-	       pre_indent, entry->devname, post_indent, entry->minfo->name);
+	printf(_(4,9,"installed DEVICE=%s\n"), entry->minfo->name);
     }
 }
 
@@ -2185,46 +2383,55 @@ static void print_classify_entry(char *name, unsigned total_conv, unsigned total
     printf("\n");
 }
 
-static void classify_list(unsigned convmemfree, unsigned umbmemfree)
+/*
+ * Recursively classify items that belong to "SYSTEM".
+ */
+static void classify_system(MINFO *ml, unsigned *total_conv,
+			    unsigned *total_umb)
 {
-    MINFO *ml, *ml2;
-    unsigned total_conv, total_umb;
-    unsigned convtopseg = biosmemory()*64;
-
-    printf(_(4,0,"\nModules using memory below 1 MB:\n\n"));
-    printf(_(4,1,
-	   "  Name           Total           Conventional       Upper Memory\n"));
-    printf("  --------  ----------------   ----------------   ----------------\n");
-    /* figure out code used by "SYSTEM" */
-    ml = make_mcb_list(NULL);
-    total_conv = ml->seg; total_umb = 0;
-    for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next) {
+    for (;ml!=NULL;ml=ml->next) {
         if (ml->owner == _psp || ml->type == MT_DOSDATA 
 	    || ml->type == MT_RESERVED)
+	    /*
+	     * We ignore our own block and DOSDATA or RESERVED blocks.
+	     */
             ml->classified = 1;
         else if (ml->type == MT_SYSCODE || ml->type == MT_SYSDATA
 		 || ml->type == MT_KERNEL || ml->type == MT_IVT
 		 || ml->type == MT_BDA || ml->type >= MT_DEVICE) {
             int size = ml->size + 1;
+	    /*
+	     * Device drivers come off our total as they are already included
+	     * in their parent MINFO's size but we don't actually include them
+	     * in "SYSTEM".
+	     */
 	    if (ml->type == MT_DEVICE)
 		size = -(size - 1);
 	    else
 		ml->classified = 1;
-            if (ml->seg < convtopseg)
-                total_conv += size;
+            if (ml->seg < last_conv_seg)
+                *total_conv += size;
             else
-                total_umb += size;
+                *total_umb += size;
+	    if (ml->first_child != NULL)
+		classify_system(ml->first_child, total_conv, total_umb);
         }
     }
-    print_classify_entry(_(4,2,"SYSTEM"), total_conv, total_umb);
-    for (ml=make_mcb_list(NULL);ml!=NULL;ml=ml->next)
+}
+
+static void classify_modules(MINFO *ml)
+{
+    MINFO *ml2;
+    unsigned total_conv, total_umb;
+
+    for (;ml!=NULL;ml=ml->next) {
         if (ml->type > MT_FREE && !ml->classified) {
             total_conv = total_umb = 0;
             for (ml2 = ml; ml2 != NULL; ml2 = ml2->next) {
                 if (!ml2->classified && ml2->type > MT_FREE &&
                     ml2->owner == ml->owner) {
                     ml2->classified = 1;
-                    if (ml2->seg < convtopseg)
+                    if (ml2->seg < last_conv_seg)
                         total_conv += ml2->size + 1;
                     else
                         total_umb += ml2->size + 1;
@@ -2232,10 +2439,32 @@ static void classify_list(unsigned convmemfree, unsigned umbmemfree)
             }
             print_classify_entry(ml->name, total_conv, total_umb);
         }
+	if (ml->first_child != NULL)
+	    classify_modules(ml->first_child);
+    }
+}
 
+static void classify_list(unsigned convmemfree, unsigned umbmemfree)
+{
+    unsigned total_conv, total_umb;
+
+    printf(_(4,0,
+"\nModules using memory below 1 MB:\n\n"));
+    printf(_(4,1,
+  "  Name           Total           Conventional       Upper Memory\n"));
+    printf(
+  "  --------  ----------------   ----------------   ----------------\n");
+    /* figure out code used by "SYSTEM" */
+    total_conv = 0; total_umb = 0;
+    classify_system(make_mcb_list(NULL), &total_conv, &total_umb);
+    print_classify_entry(_(4,2,"SYSTEM"), total_conv, total_umb);
+    /* generate output for other modules */
+    classify_modules(make_mcb_list(NULL));
     print_classify_entry(_(4,3,"Free"), convmemfree, umbmemfree);
 }
 
+typedef void (*print_header_t)(memory_t memory_type);
+typedef void (*print_footer_t)(MINFO *mlisthead);
 typedef void (*print_minfo_t)(MINFO *entry, unsigned int level);
 typedef void (*print_devinfo_t)(DEVINFO *entry, unsigned int level);
 
@@ -2265,27 +2494,37 @@ static void generic_list(MINFO *ml, unsigned int level,
 
 static void print_full_header(void)
 {
-/* FIXME: NLS - increased width of "Name" field by 2 */
     printf(_(4,4,"\nSegment       Total            Name          Type\n"));
     printf(        "-------  ----------------  ------------  -------------\n");
 }
 
 static void print_free_header(void)
 {
-/* FIXME: NLS */
-    printf(_(4,4,"\nSegment       Total\n"));
+    printf(_(4,6,"\nSegment       Total\n"));
     printf(        "-------  ----------------\n");
 }
 
 static void print_full_footer(ulong total)
 {
-/* FIXME: NLS */
     printf(        "         ----------------\n");
-    printf(        "Total:");
+    printf(_(4,7,  "Total:"));
     print_classify_value("%11s", total);
     printf("\n");
 }
 
+/*
+ * Similar to /DEBUG, but doesn't show devices, environment blocks,
+ * data blocks, and some other things.
+ */
+/*
+ * FIXME: give complete list of what is skipped in this comment and in
+ * the user documentation.
+ */
+/* FIXME: Can this be renamed from UPPER to U<something else>?  It's
+ * not really got anything to do with upper memory.  Currently the
+ * user can only access this option via /U and not via /UPPER in
+ * anticipation of finding a better name.
+ */
 static void upper_list(void)
 {
     MINFO *mlisthead = make_mcb_list(NULL);
@@ -2296,11 +2535,12 @@ static void upper_list(void)
     /*
      * Filter the list to just the entries with the given name.
      */
-    mlisthead = filter_mlist(mlisthead, filter_upper, NULL);
+    mlisthead = filter_mlist(mlisthead, FILTER_MLIST_NO_FLAGS,
+			     filter_upper, NULL);
 
     print_full_header();
 
-    generic_list(mlisthead, 0, print_minfo_full, print_devinfo_full);
+    generic_list(mlisthead, 0, print_minfo_full, NULL);
 }
 
 static void full_list(void)
@@ -2324,20 +2564,57 @@ static void device_list(void)
     }
 }
 
+/*
+ * For each memory type, display a header, use generic_list to display
+ * that part of the split list, then display a footer.  The header and
+ * footer are both optional.  The function used to print the header is
+ * passed the memory type (conventional or upper) and the function
+ * used to print the footer is passed the MINFO list so it can
+ * calculate a memory total for display in the footer.  A blank line
+ * is inserted between memory types.
+ */
+static void generic_split_list(MINFO **split,
+			       print_header_t print_header,
+			       print_footer_t print_footer,
+			       print_minfo_t print_minfo,
+			       print_devinfo_t print_devinfo)
+{
+    memory_t memory_type;
+
+    for (memory_type = memory_conv; memory_type < memory_num_types;
+	 memory_type++) {
+	if (memory_type > memory_conv) { /* if not the first type */
+	    printf("\n");
+	}
+	if (print_header != NULL) {
+	    print_header(memory_type);
+	}
+	generic_list(split[memory_type], 0,
+		     print_minfo,
+		     print_devinfo);
+	if (print_footer != NULL) {
+	    print_footer(split[memory_type]);
+	}
+    }
+}
+
+static void print_full_header_with_type(memory_t memory_type)
+{
+    printf(_(4, 10, "%s Memory Detail:\n"), memory_typename(memory_type));
+    print_full_header();
+}
+
 static void debug_list(void)
 {
     MINFO *ml;
-
-/* FIXME: NLS and pick correct text */
-/* FIXME: high mem not shown separately */
-    printf("Conventional Memory Detail:\n");
 
     ml = make_mcb_list(NULL);
     /* ignore the return value, as we get the DEVINFO entries from ml */
     (void) make_dev_list(ml);
 
-    print_full_header();
-    generic_list(ml, 0, print_minfo_full, print_devinfo_full);
+    generic_split_list(split_mlist_conv_upper(ml),
+		       print_full_header_with_type, NULL,
+		       print_minfo_full, print_devinfo_full);
 }
 
 static void ems_list(void)
@@ -2608,37 +2885,39 @@ void module_list(char *module_name)
     /*
      * Filter the list to just the entries with the given name.
      */
-    mlisthead = filter_mlist(mlisthead, filter_by_module_name, module_name);
+    mlisthead = filter_mlist(mlisthead,
+			     FILTER_MLIST_EXPANDED |
+			     FILTER_MLIST_SEARCH_CHILDREN,
+			     filter_by_module_name, module_name);
     if (mlisthead == NULL) {
-/* FIXME: NLS */
-	printf("%s is not currently in memory.\n", module_name);
-	return;
+	printf(_(1,7,"%s is not currently in memory.\n"), module_name);
+/* FIXME: document this errorlevel */
+	exit(2);
     }
 
-/* FIXME: NLS */
-    printf("%s is using the following memory:\n", module_name);
+    printf(_(1,8,"%s is using the following memory:\n"), module_name);
     print_full_header();
 
     generic_list(mlisthead, 0, print_minfo_full, print_devinfo_full);
 
     print_full_footer(total_mem(mlisthead));
-}
 
 /*
- * Obviously MCBs that are actually free should be shown as such, but we also
- * show our own MCB as free because the user isn't too interested in how much
- * memory MEM takes.  Note that MEM /DEBUG or MEM /FULL should still show
- * MEM in their output, but MEM /FREE should show MEM's block as free and
- * the plain MEM output should include MEM's own MCB in the free memory total.
+ * FIXME: use split list (conventional/upper) for /MODULE?  We should
+ * probably include a grand total as well as the conventional total
+ * and upper total if we do split it.
  */
-int show_minfo_as_free(MINFO *entry)
-{
-    return (entry->type == MT_FREE || (entry->seg + 1 == _psp));
 }
 
-int filter_free(MINFO *entry, void *data)
+static void print_free_header_with_type(memory_t memory_type)
 {
-    return (show_minfo_as_free(entry));
+    printf(_(4, 11, "Free %s Memory:\n"), memory_typename(memory_type));
+    print_free_header();
+}
+
+static void print_free_footer(MINFO *mlisthead)
+{
+    print_full_footer(total_mem(mlisthead));
 }
 
 void free_list(void)
@@ -2649,28 +2928,25 @@ void free_list(void)
     (void) make_dev_list(mlisthead);
 
     /*
-     * Filter the list to just the entries with the given name.
+     * Filter the list to just the entries with the given name.  Whether or not
+     * we pass FILTER_MLIST_EXPANDED is irrelevant as free blocks don't have
+     * sub-blocks.
      */
-    mlisthead = filter_mlist(mlisthead, filter_free, NULL);
+    mlisthead = filter_mlist(mlisthead, FILTER_MLIST_NO_FLAGS,
+			     filter_free, NULL);
     if (mlisthead == NULL) {
-/* FIXME: NLS */
-	printf("There is no free memory!\n");
+	printf(_(1,6,"No memory is free\n"));
 	return;
     }
-
-/* FIXME: MS-DOS splits into conventional and upper; we should too */
-/* FIXME: NLS */
-    printf("Free Conventional Memory:\n");
-
-    print_free_header();
 
     /*
      * Pass NULL for print_devinfo as we won't be printing any devices
      * - a free block won't have any devices linked off it.
      */
-    generic_list(mlisthead, 0, print_minfo_free, NULL);
-
-    print_full_footer(total_mem(mlisthead));
+    generic_split_list(split_mlist_conv_upper(mlisthead),
+		       print_free_header_with_type,
+		       print_free_footer,
+		       print_minfo_free, NULL);
 }
 
 /* function to obtain the number of lines on the screen...added by brian reifsnyder.  */
@@ -2689,23 +2965,48 @@ int is_switch_char(char c)
     return (c == '-' || c == '/');
 }
 
+int is_space_char(char c)
+{
+    /*
+     * Don't need to actually list ' ' since the C runtime takes care of
+     * splitting up argv[] based on spaces.
+     */
+    return (c == ':');
+}
+
 #define NO_SWITCH_CHAR '\0'
 
-typedef enum {
-    F_HELP = 1,
-    F_DEVICE = 2,
-    F_EMS = 4,
-    F_FULL = 8,
-    F_UPPER = 16,
-    F_XMS = 32,
-    F_PAGE = 64,
-    F_CLASSIFY = 128,
-    F_DEBUG = 256,
-    F_MODULE = 512,
-    F_FREE = 1024,
-    F_ALL = 2048,
-    F_NOSUMMARY = 4096
-} opt_flag_t;
+#define F_HELP       0x00000001UL
+#define F_DEVICE     0x00000002UL
+#define F_EMS	     0x00000004UL
+#define F_FULL	     0x00000008UL
+#define F_UPPER	     0x00000010UL
+#define F_XMS	     0x00000020UL
+#define F_PAGE	     0x00000040UL
+#define F_CLASSIFY   0x00000080UL
+#define F_DEBUG	     0x00000100UL
+#define F_MODULE     0x00000200UL
+#define F_FREE	     0x00000400UL
+#define F_ALL	     0x00000800UL
+#define F_NOSUMMARY  0x00001000UL
+#define F_SUMMARY    0x00002000UL
+#define F_DBGDEVADDR 0x00004000UL
+#define F_DBGHMAMIN  0x00008000UL
+#define F_OLD	     0x00010000UL
+#define F_F          0x00020000UL
+#define F_D          0x00040000UL
+
+typedef unsigned long opt_flag_t;
+
+/*
+ * Mask for values of opt_flag_t which cause additional output (on top of the
+ * normal summary) to be produced.  If the user specifies /NOSUMMARY without
+ * one of these flags it is considered an error because absolutley no output
+ * would be generated.
+ */
+#define OPT_FLAG_MASK_OUTPUT (F_HELP | F_DEVICE | F_EMS | F_FULL |	\
+			      F_UPPER | F_XMS | F_CLASSIFY | F_DEBUG |	\
+			      F_MODULE | F_FREE)
 
 typedef struct {
     char *s;
@@ -2718,10 +3019,78 @@ typedef enum {
     GET_OPTS_STATE_VALUE
 } get_opts_state_t;
 
-int get_opts (char *argv[], opt_t *opts, int opt_count)
+/*
+ * Each element of argv[] may contain one or more substrings.  Each of
+ * these substrings may be an option, which starts with a character
+ * for which is_switch_char() returns TRUE, a value which corresponds
+ * to the option before it, or a sequence of whitespace-equivalent
+ * characters for which is_space_char() returns TRUE.
+ *
+ * The beginning of an argv[] element is always the beginning of a
+ * substring and the end of an argv[] element is always the end of a
+ * substring.  A substring ends before a switch character, so an
+ * argv[] element of "/FOO/BAR" would be parsed as two substrings
+ * "/FOO" and "/BAR".  A substring consisting of whitespace-equivalent
+ * characters serves only to split two substrings, so "/FOO:BAR" or
+ * "/FOO::BAR", etc. would be parsed as substrings "/FOO", a sequence
+ * of colons which are ignored, and "BAR".
+ *
+ * If a substring begins with a switch character, it is interpreted as
+ * an option.  The part of the substring after the leading switch
+ * character is compared to the 's' member of each entry in the array
+ * 'opts'.  If the substring is a complete case-insensitive match for
+ * exactly one 's' member then the corresponding 'flag' will be set in
+ * the return value of the function.  If it is an exact match for more
+ * than one 's' member then an error message is shown; you should not
+ * set up 'opts' such that there are multiple array members with the
+ * same 's' value.
+ *
+ * If the substring isn't an exact match for any 's' member, the
+ * following holds: If the substring is an initial substring, i.e. a
+ * prefix, of exactly one 's' member, e.g. the substring after removal
+ * of the switch characer is "F" and an 's' member is equal to "FOO",
+ * then the corresponding 'flag' will be set in the return value of
+ * the function.  If it is a prefix for more than one 's' member,
+ * e.g. the substring is "B" and it is a substring of both "BAR" and
+ * "BAZ", then the user will be shown an error message indicating that
+ * the option they specified is ambiguous and matches two or more
+ * possible options.  The user needs to specify more characters of the
+ * option name to avoid this.
+ *
+ * If the substring is not a prefix of any 's' member, then the
+ * following holds: if the value of 's' is a prefix of the substring,
+ * e.g. the substring is "FOOBAR" and 's' is "FOO", AND the
+ * corresponding 'value' is not NULL (i.e. 's' is the text of an
+ * option that requires a value), then the corresponding 'flag' will
+ * be set in the return value of the function and the part of the
+ * substring following 's' in the substring will be treated as a
+ * separate substring for the purposes of setting 'value' as described
+ * below.  If the multiple values of 's' are prefixes of the
+ * substring, then we ignore all but the one with the longest string
+ * length, e.g. if 's' values of "F" and "FOO" are seen, then if the
+ * substring is "FOOBAR", we will ignore the fact that "F" is a prefix
+ * of "FOOBAR" and act as if "FOO" was the only option that was a
+ * prefix of "FOOBAR".  If there is more than one value of 's' that is
+ * a prefix of the substring with the same length, this indicates that
+ * 'opts' contains duplicate options and an error will be shown.
+ *
+ * If the substring is not an exact match for any 's' member, is not a
+ * prefix of any 's' member, and does not have a value of 's' for an
+ * option that takes a value as its prefix, then the user is given an
+ * error message indicating that they specified an unrecognized
+ * option.
+ *
+ * If the return value of the function is being set based on the
+ * 'flag' member for an array member, then if the 'value' member for
+ * the option is not NULL this indicates that the option requires a
+ * value.  The pointer that 'value' points to will be set to point to
+ * the substring.
+ */
+opt_flag_t get_opts (char *argv[], opt_t *opts, int opt_count)
 {
     int arg_index = 1, opt_index, matched_index;
     int partial_match_count, exact_match_count;
+    int prefix_match_len, new_prefix_match_len;
     char *char_ptr = argv[arg_index];
     char *switch_start, *switch_text_start, old_switch_char;
     opt_flag_t flags = 0;
@@ -2732,8 +3101,7 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 	 * If state == GET_OPTS_STATE_SWITCH, we're at the start of a
 	 * switch, which might be the start of argv[i] or somewhere
 	 * inside it.  Otherwise we're at the start of a value for a
-	 * switch, which is always at the start of argv[i].
-	 */
+	 * switch, which is always at the start of argv[i].  */
 	switch_start = char_ptr;
 
 	/*
@@ -2741,17 +3109,15 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 	 */
 	if (state == GET_OPTS_STATE_SWITCH) {
 	    if (!is_switch_char(*char_ptr)) {
-/* FIXME: NLS */
-		fatal(_(0,4,"unknown option (expected a '/'): %s\nUse /? for "
-			"help\n"), switch_start);
+		fatal(_(0,8,"unknown option (expected a '/'): %s\n%s"),
+		      switch_start, _(0,4,"Use /? for help\n"));
 	    }
 	    char_ptr++;
 	} else { /* state == GET_OPTS_STATE_VALUE */
 	    if (is_switch_char(*char_ptr)) {
-/* FIXME: NLS */
-		fatal(_(0,4,"Expected a value after /%s, not another switch\n"
-			"Use /? for help\n"),
-		      opts[matched_index].s);
+		fatal(_(0,9,
+"Expected a value after /%s, not another switch\n%s"), opts[matched_index].s,
+		      _(0,4,"Use /? for help\n"));
 	    }
 	}
 
@@ -2760,7 +3126,9 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 	 * switch.
 	 */
 	switch_text_start = char_ptr;
-	while (*char_ptr != '\0' && !is_switch_char(*char_ptr)) {
+	while (*char_ptr != '\0'
+	       && !is_switch_char(*char_ptr)
+	       && !is_space_char(*char_ptr)) {
 	    char_ptr++;
 	}
 
@@ -2769,21 +3137,27 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 	 * need to put a '\0' character at char_ptr so that string
 	 * operations don't see the following argument.
 	 */
-	if (is_switch_char(*char_ptr)) {
+	if (is_switch_char(*char_ptr) || is_space_char(*char_ptr)) {
 	    old_switch_char = *char_ptr;
 	    *char_ptr = '\0';
 	} else {
 	    old_switch_char = NO_SWITCH_CHAR;
 	}
 
+	prefix_match_len = 0;
+	exact_match_count = 0;
+	partial_match_count = 0;
 	if (state == GET_OPTS_STATE_SWITCH) {
+	    if (strlen(switch_text_start) == 0) {
+		fatal(_(0, 14,
+"Invalid option '%s': you must specify at least one letter of the\n"
+"option name"), switch_start);
+	    }
 	    strupr(switch_text_start);
-#ifdef DEBUG
+#ifdef DEBUG_PARSER
 	    printf("%s: argument is [%s]\n", __FUNCTION__, switch_text_start);
 #endif
 
-	    exact_match_count = 0;
-	    partial_match_count = 0;
 	    for (opt_index = 0; opt_index < opt_count; opt_index++) {
 		if (strstr(opts[opt_index].s, switch_text_start)
 		    == opts[opt_index].s) {
@@ -2803,7 +3177,7 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 			== strlen(switch_text_start)) {
 			exact_match_count++;
 			matched_index = opt_index;
-#ifdef DEBUG
+#ifdef DEBUG_PARSER
 			printf("%s: argument is exact match (number %u) for "
 			       "[%s]\n", __FUNCTION__, exact_match_count,
 			       opts[opt_index].s);
@@ -2813,48 +3187,90 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 			if (exact_match_count == 0) {
 			    matched_index = opt_index;
 			}
-#ifdef DEBUG
+#ifdef DEBUG_PARSER
 			printf("%s: argument is partial match (number %u) for "
 			       "[%s]\n", __FUNCTION__, partial_match_count,
 			       opts[opt_index].s);
 #endif
 		    }
+		} else if (strstr(switch_text_start, opts[opt_index].s)
+			   == switch_text_start
+			   && opts[opt_index].value != NULL) {
+		    /*
+		     * opts[opt_index].s does not begin with
+		     * switch_text_start (nor are they equal), but
+		     * switch_text_start begins with opts[opt_index].s
+		     * and opts[opt_index] is an option that takes a
+		     * value.  Note that we only set matched_index
+		     * (i.e. treat this as actually being the option
+		     * the user wanted to select) if (a) we've not
+		     * seen an exact match [yet], (b) we've not seen a
+		     * partial match [yet] and (c) we've not seen a
+		     * longer match [yet].  If we see any of those
+		     * three later, we will overwrite matched_index.
+		     */
+#ifdef DEBUG_PARSER
+		    printf("%s: argument begins with [%s]\n", __FUNCTION__,
+			   opts[opt_index].s);
+#endif
+		    if (exact_match_count == 0 && partial_match_count == 0) {
+			new_prefix_match_len = strlen(opts[opt_index].s);
+			if (new_prefix_match_len > prefix_match_len) {
+			    prefix_match_len = new_prefix_match_len;
+			    matched_index = opt_index;
+			} else if (new_prefix_match_len == prefix_match_len) {
+			    /*
+			     * If there is another opts[].s which is the same
+			     * length which is also a prefix of
+			     * switch_text_start, we must have duplicate
+			     * options.
+			     */
+			    fatal(_(0,10,"Internal error: option '%s' has "
+				    "'%s' as a prefix\nplus another equal-"
+				    "length prefix"),
+				  switch_start, opts[opt_index].s);
+			}
+		    }
 		}
 	    }
 
 	    /*
-	     * Now figure out if we had ambiguity or no match at all.  The
-	     * normal cases are exact_match_count == 1 (in which case we
-	     * don't care if there were any partial matches) or
-	     * exact_match_count == 0 && partial_match_count == 1
-	     * (i.e. the user's input was a partial match for only one
-	     * switch).
+	     * Now figure out if we had ambiguity or no match at all.
+	     * The normal cases are exact_match_count == 1 (in which
+	     * case we don't care if there were any partial matches or
+	     * prefixes) or exact_match_count == 0 &&
+	     * partial_match_count == 1 (i.e. the user's input was a
+	     * partial match for only one switch) or exact_match_count
+	     * == 0 && partial_match_count == 0 && prefix_match_len !=
+	     * 0 (i.e. the user's input had a switch as its prefix).
 	     */
 	    if (exact_match_count > 1) {
 		/*
 		 * This is a bug - there shouldn't be two options with the
 		 * same text in opts[]!
 		 */
-/* FIXME: NLS */
-		fatal(_(0,4,"Internal error: option '%s' was an exact match "
-			"for two different switches\n"), switch_start);
+		fatal(_(0,11,
+"Internal error: option '%s' was an exact match for two\n"
+"different switches\n"), switch_start);
 	    } else if (exact_match_count == 0) {
 		if (partial_match_count > 1) {
-/* FIXME: NLS */
-		    fatal(_(0,4,"Error: option '%s' is ambiguous - it is a "
-			    "partial match for two different switches\n"),
-			  switch_start);
+		    fatal(_(0,12,
+"Error: option '%s' is ambiguous - it is a partial match for two\n"
+"or more different options\n%s"), switch_start, _(0,4,"Use /? for help\n"));
 		}
-		if (partial_match_count == 0) {
-		    fatal(_(0,4,"unknown option: %s\nUse /? for help\n"),
-			  switch_start);
+		if (partial_match_count == 0 && prefix_match_len == 0) {
+		    fatal(_(0,5,"unknown option: %s\n%s"),
+			  switch_start, _(0,4,"Use /? for help\n"));
 		}
 	    }
 	    /*
-	     * We had only one exact match or no exact match but one
-	     * partial match.  In either case, matched_index will be set.
+	     * We had (a) only one exact match, (b) no exact match but
+	     * one partial match, or (c) no exact match, no partial
+	     * match, but one or more prefix matches (of which we
+	     * would have ignored all but the longest).  In any
+	     * case, matched_index will be set.
 	     */
-#ifdef DEBUG
+#ifdef DEBUG_PARSER
 	    printf("%s: resolved to: [%s]\n", __FUNCTION__,
 		   opts[matched_index].s);
 #endif
@@ -2865,34 +3281,61 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
 	     * loop we need to get a value for the switch.
 	     */
 	    if (opts[matched_index].value != NULL) {
-#ifdef DEBUG
+#ifdef DEBUG_PARSER
 		printf("%s: expecting a value for this switch\n",
 		       __FUNCTION__);
 #endif
 		state = GET_OPTS_STATE_VALUE;
 	    }
 	} else { /* state == GET_OPTS_STATE_VALUE */
-#ifdef DEBUG
+#ifdef DEBUG_PARSER
 	    printf("%s: got switch value [%s]\n", __FUNCTION__, switch_start);
 #endif
 	    *(opts[matched_index].value) = xstrdup(switch_start);
 	    state = GET_OPTS_STATE_SWITCH;
 	}
 
-	if (old_switch_char == NO_SWITCH_CHAR) {
+	if (old_switch_char != NO_SWITCH_CHAR) {
 	    /*
-	     * *char_ptr was originally '\0' so move to next argv[] element.
-	     */
-            arg_index++;
-            char_ptr = argv[arg_index];
-        } else {
-	    /*
-	     * *char_ptr was originally a switch character, so restore it and
-	     * continue through the loop to process the next switch in this
-	     * argv[] element.
+	     * *char_ptr was originally a switch or space character,
+	     * so restore it and continue through the loop to process
+	     * the next switch in this argv[] element.
 	     */
 	    *char_ptr = old_switch_char;
 	}
+
+	if (exact_match_count == 0 && partial_match_count == 0
+	    && prefix_match_len != 0) {
+	    /*
+	     * We just processed an option which takes a value, and
+	     * the option and value are concatenated.  char_ptr points
+	     * to the first character after the value, but we need to
+	     * make it point to the first character after the option
+	     * (i.e. the first character of the value) so that we can
+	     * parse the value in the next loop iteration.  Note that
+	     * the following code which handles trailing
+	     * whitespace-like characters and the end of the argv[]
+	     * element will do nothing since char_ptr will not be
+	     * pointing to one of those types of characters.  */
+	    char_ptr = switch_text_start + prefix_match_len;
+	}
+
+	/*
+	 * Skip over any whitespace-like characters that came after the flag.
+	 * If we're already at the end of the string,
+	 * is_space_char(*char_ptr) will return FALSE.
+	 */
+	while (is_space_char(*char_ptr)) {
+	    char_ptr++;
+	}
+	/*
+	 * If we're at the end of the argv[] element, possibly after skipping
+	 * over whitespace-like characters, move to next argv[] element.
+	 */
+	if (*char_ptr == '\0') {
+            arg_index++;
+            char_ptr = argv[arg_index];
+        }
     }
 
     /*
@@ -2900,13 +3343,114 @@ int get_opts (char *argv[], opt_t *opts, int opt_count)
      * value.
      */
     if (state == GET_OPTS_STATE_VALUE) {
-/* FIXME: NLS */
-	fatal(_(0,4,"Expected a value after /%s\n"
-		"Use /? for help\n"),
-	      opts[matched_index].s);
+	fatal(_(0,13,"Expected a value after /%s\n%s"),
+	      opts[matched_index].s, _(0,4,"Use /? for help\n"));
     }
 
     return (flags);
+}
+
+/*
+ * Return the help string for the given command-line flag/option.  If
+ * there is no help string for the option, NULL is returned.
+ */
+char *help_for_flag(opt_flag_t opt)
+{
+    switch (opt) {
+    case F_HELP:       return (_(7, 10,
+"/?          Displays this help message"));
+    case F_DEVICE:     return (_(7, 6,
+"/DEVICE     List of device drivers currently in memory"));
+    case F_EMS:        return (_(7, 3,
+"/E          Reports all information about Expanded Memory"));
+    case F_FULL:       return (_(7, 4,
+"/FULL       Full list of memory blocks"));
+    case F_UPPER:      return (_(7, 7,
+"/U          List of programs in conventional and upper memory"));
+    case F_XMS:        return (_(7, 8,
+"/X          Reports all information about Extended Memory"));
+    case F_PAGE:       return (_(7, 9,
+"/P          Pauses after each screenful of information"));
+    case F_CLASSIFY:   return (_(7, 5,
+"/C          Classify modules using memory below 1 MB"));
+    case F_DEBUG:      return (_(7, 11,
+"/DEBUG      Show programs and devices in conventional and upper memory"));
+    case F_MODULE:     return (_(7, 12,
+"/M <name> | /MODULE <name>\n"
+"            Show memory used by the given program or driver"));
+    case F_FREE:       return (_(7, 13,
+"/FREE       Show free conventional and upper memory blocks"));
+    case F_ALL:        return (_(7, 14,
+"/ALL        Show all details of high memory area (HMA)"));
+    case F_NOSUMMARY:  return (_(7, 15,
+"/NOSUMMARY  Do not show the summary normally displayed when no other\n"
+"            options are specified"));
+    case F_SUMMARY:    return (_(7, 16,
+"/SUMMARY    Negates the /NOSUMMARY option"));
+    case F_OLD:        return (_(7, 18,
+"/OLD        Compatability with FreeDOS MEM 1.7 beta"));
+    case F_D:          return (_(7, 19,
+"/D          Same as /DEBUG by default, same as /DEVICE if /OLD used"));
+    case F_F:          return (_(7, 20,
+"/F          Same as /FREE by default, same as /FULL if /OLD used"));
+    default:           return (NULL);
+    }
+}
+
+void show_help(opt_t *opts, int opt_count)
+{
+    int opt_index;
+    opt_flag_t displayed_flags = 0;
+    opt_flag_t flag;
+    char *help_str;
+
+    printf(_(7, 0, "FreeDOS MEM version %d.%d%s"),
+	   MEM_MAJOR, MEM_MINOR, MEM_VER_SUFFIX);
+#ifdef DEBUG
+    printf(" DEBUG");
+#endif
+    printf(" [%s %s", __DATE__, __TIME__);
+#ifdef __WATCOMC__
+    printf(" Watcom C %u.%u", __WATCOMC__ / 100, __WATCOMC__ % 100);
+#endif
+#ifdef __TURBOC__
+    printf(" Turbo C 0x%04X", __TURBOC__);
+#endif
+    printf("]\n");
+
+    printf("%s\n\n%s\n",
+	   _(7, 1, "Displays the amount of used and free memory in your system."),
+	   _(7, 2, "Syntax: MEM [zero or more of the options shown below]"));
+    
+    for (opt_index = 0; opt_index < opt_count; opt_index++) {
+	flag = opts[opt_index].flag;
+	if (displayed_flags & flag) {
+	    /*
+	     * We've already displayed the provided help string for
+	     * this flag so don't re-display it.
+	     */
+	    continue;
+	}
+	help_str = help_for_flag(flag);
+	if (help_str != NULL) {
+	    printf("%s\n", help_str);
+	    /*
+	     * Make sure we don't display this string again - the
+	     * string returned by help_for_flag() should have covered
+	     * both options.
+	     */
+	    displayed_flags |= flag;
+	} else {
+	    printf(_(7, 17, "/%-10s No help is available for this option\n"),
+		   opts[opt_index].s);
+	    /*
+	     * If there is another option with the same flag, we'll
+	     * need to display that one too.
+	     */
+	}
+    }
+
+    exit(1);
 }
 
 int main(int argc, char *argv[])
@@ -2921,20 +3465,34 @@ int main(int argc, char *argv[])
       { "ALL",		F_ALL,		NULL },
       { "C",		F_CLASSIFY,	NULL },
       { "CLASSIFY",	F_CLASSIFY,	NULL },
-      { "D",		F_DEBUG,	NULL },
+      { "D",		F_D,		NULL },
+#ifdef DEBUG
+      { "DBGDEVADDR",   F_DBGDEVADDR,   NULL },
+      { "DBGHMAMIN",    F_DBGHMAMIN,    NULL },
+#endif
       { "DEBUG",	F_DEBUG,	NULL },
       { "DEVICE",	F_DEVICE,	NULL },
       { "EMS",		F_EMS,		NULL },
-      { "F",		F_FULL,		NULL },
+      { "F",		F_F,		NULL },
       { "FREE",		F_FREE,		NULL },
       { "FULL",		F_FULL,		NULL },
       { "HELP",		F_HELP,		NULL },
+      /*
+       * Specify both /M and /MODULE in this array so the parser handles
+       * /M<module_name>, i.e. the option without a separator before
+       * the module name.
+       */
+      { "M",		F_MODULE,	&module_name },
       { "MODULE",	F_MODULE,	&module_name },
       { "NOSUMMARY",	F_NOSUMMARY,	NULL },
+      { "OLD",		F_OLD,		NULL },
       { "PAGE",		F_PAGE,		NULL },
+      { "SUMMARY",      F_SUMMARY,      NULL },
       { "U",		F_UPPER,	NULL },
       { "XMS",		F_XMS,		NULL }
     };
+
+    setup_globals();
 
     /* avoid unused argument warning? */
     argc = argc;
@@ -2943,17 +3501,75 @@ int main(int argc, char *argv[])
 
     flags = get_opts(argv, &opts, sizeof(opts) / sizeof(opts[0]));
 
+#ifdef DEBUG
+    /*
+     * Set up global boolean flags used to enable debugging based on
+     * the command-line options.
+     */
+    dbgdevaddr = ((flags & F_DBGDEVADDR) == F_DBGDEVADDR);
+    dbghmamin = ((flags & F_DBGHMAMIN) == F_DBGHMAMIN);
+#endif
+
+    /*
+     * The /OLD flag selects the old meanings of /D and /F vs. the (new)
+     * MS-DOS-like meanings:
+     * /D => /OLD ? /DEVICE : /DEBUG
+     * /F => /OLD ? /FULL : /FREE */
+    if (flags & F_D) {
+	if (flags & F_OLD) {
+	    flags |= F_DEVICE;
+	} else {
+	    flags |= F_DEBUG;
+	}
+    }
+    if (flags & F_F) {
+	if (flags & F_OLD) {
+	    flags |= F_FULL;
+	} else {
+	    flags |= F_FREE;
+	}
+    }
+
+    /*
+     * /SUMMARY cancels /NOSUMMARY and has a higher precedence.
+     */
+    if ((flags & F_SUMMARY) && (flags & F_NOSUMMARY)) {
+	flags &= ~(F_SUMMARY | F_NOSUMMARY);
+    }
+
+    /*
+     * If the user specified /NOSUMMARY but not one of the flags in
+     * OPT_FLAG_MASK_OUTPUT then no output would be produced.
+     */
+    if ((flags & F_NOSUMMARY) && !(flags & OPT_FLAG_MASK_OUTPUT)) {
+	fatal(_(0,6,
+"The /NOSUMMARY option was specified, but no other output-producing options\n"
+"were specified, so no output is being produced.\n%s"),
+	      _(0,4,"Use /? for help\n"));
+    }
+
+    /*
+     * /? or /HELP takes precedence over all other options and they
+     * are ignored if it is specified.
+     */
+    if (flags & F_HELP)
+      {
+	show_help(&opts, sizeof(opts) / sizeof(opts[0]));
+      }
+
     upper=check_upper(make_mcb_list(&memfree));
 
     if (flags & F_PAGE)   num_lines=get_font_info();
 
 /*
- * FIXME: In MS-DOS, when /M is specified, nothing else is shown.
- * We need to make sure no other flags are specified!
+ * FIXME: In MS-DOS, when /MODULE or /FREE are specified, nothing else
+ * is shown.  We need to make sure no other flags are specified!  Or
+ * should we allow those options plus something else?
  */
-
-    /* FIXME: should probably have /DEBUG determine whether /MODULE includes a subtree of devices */
-
+/*
+ * FIXME: Perhaps when /MODULE is specified, the /DEBUG flag should
+ * determine whether subtrees of devices are included?
+ */
     if (flags & F_MODULE) {
 	module_list(module_name);
 	return 0;
@@ -2970,25 +3586,6 @@ int main(int argc, char *argv[])
     if (flags & F_UPPER)  upper_list();
     if (flags & F_XMS)    xms_list();
     if (flags & F_CLASSIFY)    classify_list(memfree, upper ? upper->free : 0);
-        
-    if (flags & F_HELP)
-      {
-	printf(_(7, 0, "FreeDOS MEM version %d.%d\n"),
-	       MEM_MAJOR, MEM_MINOR);
-/* FIXME: update valid command-line options */
-	printf("%s\n\n%s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n",
-	_(7, 1, "Displays the amount of used and free memory in your system."),
-	_(7, 2, "Syntax: MEM [/E] [/F] [/C] [/D] [/U] [/X] [/P] [/?]"),
-	_(7, 3, "/E  Reports all information about Expanded Memory"),
-	_(7, 4, "/F  Full list of memory blocks"),
-	_(7, 5, "/C  Classify modules using memory below 1 MB"),
-	_(7, 6, "/D  List of device drivers currently in memory"),
-	_(7, 7, "/U  List of programs in conventional and upper memory"),
-	_(7, 8, "/X  Reports all information about Extended Memory"),
-	_(7, 9, "/P  Pauses after each screenful of information"),
-	_(7, 10, "/?  Displays this help message"));
-	return 1;
-      }
 
     if (!(flags & F_NOSUMMARY)) {
         normal_list(memfree, upper, flags & F_ALL, flags & F_DEBUG);
@@ -3033,5 +3630,9 @@ void _Cdecl _setupio (void){}
 
 #endif
 
-
-/* FIXME: should the sizes shown to the user include sizeof(MCB)?  it seems that we are not consistent in including the size of the MCB between /CLASSIFY and /FULL; in MS-DOS we don't have inconsistency between /C and /F but don't know what they DO do */
+/*
+ * FIXME: should the sizes shown to the user include sizeof(MCB)?  it
+ * seems that we are not consistent in including the size of the MCB
+ * between /CLASSIFY and /FULL; in MS-DOS we don't have inconsistency
+ * between /C and /F but don't know what they DO do.
+ */
