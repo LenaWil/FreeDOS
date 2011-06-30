@@ -205,9 +205,7 @@ void
 install_usage (void)
 {
   fprintf (stderr, "usage:\n");
-  fprintf (stderr, "\tINSTALL\n");
-  fprintf (stderr, "\tINSTALL {dest}\n");
-  fprintf (stderr, "\tINSTALL {source} {dest}\n");
+  fprintf (stderr, "\tINSTALL [ [source] dest ]\n");
 }
 
 /* install() */
