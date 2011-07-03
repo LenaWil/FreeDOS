@@ -51,7 +51,7 @@ typedef struct
   char *fname;
 } path_t;
 
-#define FILELIST_INCR 300
+#define FILELIST_INCR 100
 
 #define DESTDIR "C:\\FDOS"		/* default install dir */
 
@@ -70,7 +70,6 @@ main (int argc, char **argv)
   int src = 0;
 
   char cwd[_MAX_PATH];
-  char fromdir[_MAX_PATH];
   char destdir[_MAX_PATH];
 
   char yn[] = "YN";
@@ -87,47 +86,28 @@ main (int argc, char **argv)
   fg = _gettextcolor ();
   bg = _getbkcolor ();
 
-  /* check usage */
+  /* check usage (simple) */
 
-  for (i = 1; i < argc; i++)
-    {
-      if (strchar (argv[i], '/') != -1)
-	{
-	  fprintf (stderr, "Option characters not allowed [%s]\n", argv[i]);
-	  install_usage ();
-	  exit (1);
-	}
-    }
-
-  if (argc > 3)
+  if (argc > 2)
     {
       fprintf (stderr, "Too many arguments!\n");
       install_usage ();
       exit (1);
     }
 
-  else if (argc == 3)
-    {
-      /* install {source} {dest} */
-      strncpy (fromdir, argv[1], _MAX_PATH);
-      strncpy (destdir, argv[2], _MAX_PATH);
-    }
-
   else if (argc == 2)
     {
       /* install {dest} */
-      strncpy (fromdir, cwd, _MAX_PATH);
       strncpy (destdir, argv[1], _MAX_PATH);
     }
 
-  else if (argc == 1)
+  else
     {
       /* install */
-      strncpy (fromdir, cwd, _MAX_PATH);
       strncpy (destdir, DESTDIR, _MAX_PATH);
     }
 
-  /* does fromdir exist? does dest drive exist? */
+  /* TODO: does dest drive exist? */
 
   /* open language catalog */
 
@@ -151,7 +131,7 @@ main (int argc, char **argv)
   _clearscreen (_GWINDOW);
 
   _settextposition (5, 5);		/* relative to window */
-  cprintf ("Installing from: %s", fromdir);
+  cprintf ("Installing from: %s", cwd);
 
   _settextposition (6, 5);		/* relative to window */
   cprintf ("Installing to: %s", destdir);
@@ -159,12 +139,12 @@ main (int argc, char **argv)
   /* install everything? */
 
   _settextposition (10, 15);		/* relative to window */
-  all = yesno ("Do you want to install everything? (y/n)", yn, yes, no);
+  all = yesno ("Install all disk sets, all packages? (y/n)", yn, yes, no);
 
   /* install source code? */
 
   _settextposition (12, 15);		/* relative to window */
-  src = yesno ("Do you want to install source code too? (y/n)", yn, yes, no);
+  src = yesno ("Install source code, too? (y/n)", yn, yes, no);
 
   /* are you sure? */
 
@@ -175,7 +155,7 @@ main (int argc, char **argv)
   /* do the install */
 
   _displaycursor (_GCURSOROFF);
-  install (fromdir, destdir, all, src);
+  install ("PKGS", destdir, all, src);
   _displaycursor (_GCURSORON);
 
   progressbar (1, 1);
@@ -188,8 +168,6 @@ main (int argc, char **argv)
   kittenclose ();
 
   /* reset, and quit */
-
-  chdir (cwd);
 
   _settextcolor (fg);
   _setbkcolor (bg);
@@ -205,7 +183,7 @@ void
 install_usage (void)
 {
   fprintf (stderr, "usage:\n");
-  fprintf (stderr, "\tINSTALL [ [source] dest ]\n");
+  fprintf (stderr, "\tINSTALL [ dest ]\n");
 }
 
 /* install() */
@@ -213,16 +191,28 @@ install_usage (void)
 /* do-all function that performs the actuall install */
 
 void
-install (char *fromdir, char *destdir, int all, int src)
+install (char *fromdir, char *destdir, int install_all, int install_src)
 {
   int i;
   int done;
   struct find_t ffblk;
 
-  char *dirlist[] = { "base.dir", "boot.dir", "devel.dir", "edit.dir", "gui.dir", "net.dir", "sound.dir", "util.dir" };
   int dirlist_count = 8;
+  char *dirlist[] = {
+    "BASE",
+    "BOOT",
+    "DEVEL",
+    "EDIT",
+    "GUI",
+    "NET",
+    "SOUND",
+    "UTIL"
+  };
 
+  char dir[_MAX_PATH];
   char full_zipfile[_MAX_PATH];
+
+  char filelist_mask[_MAX_PATH];
 
   path_t *filelist;
   int filelist_size;
@@ -234,7 +224,7 @@ install (char *fromdir, char *destdir, int all, int src)
 
   /* loop through all of dirlist, and read entries into filelist */
 
-  if (!all)
+  if (! install_all)
     {
       /* if not installing everything, just install base */
       dirlist_count = 1;
@@ -254,8 +244,9 @@ install (char *fromdir, char *destdir, int all, int src)
 
   for (i = 0; i < dirlist_count; i++)
     {
-      chdir (dirlist[i]);
-      done = _dos_findfirst ("*.ZIP", _A_NORMAL, &ffblk);
+      sprintf (filelist_mask, "PKGS\\%s\\*.ZIP", dirlist[i]);
+
+     done = _dos_findfirst (filelist_mask, _A_NORMAL, &ffblk);
 
       while (!done)
         {
@@ -288,8 +279,6 @@ install (char *fromdir, char *destdir, int all, int src)
 
           done = _dos_findnext (&ffblk);
         }
-
-      chdir ("..");
     }
 
   /* install */
@@ -303,7 +292,12 @@ install (char *fromdir, char *destdir, int all, int src)
       _settextposition (10, 15);		/* relative to window */
       cprintf ("%s            ", filelist[i].fname);
 
-      _makepath (full_zipfile, NULL, dirlist[ filelist[i].dirnum ], filelist[i].fname, NULL);
+      /* create full path of zip file */
+
+      sprintf (dir, "PKGS\\%s", dirlist[ filelist[i].dirnum ]);
+      _makepath (full_zipfile, NULL, dir, filelist[i].fname, NULL);
+
+      /* unzip */
 
       unzip_file (full_zipfile, fromdir, destdir);
     }

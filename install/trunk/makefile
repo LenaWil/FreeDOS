@@ -12,7 +12,7 @@ LFLAGS=-q
 
 UNZIP=unzip552
 
-OBJS=kitten.obj splitdir.obj strchar.obj window.obj yesno.obj unz.obj
+OBJS=kitten.obj strchar.obj window.obj yesno.obj unz.obj
 
 install.exe: install.obj $(OBJS) $(UNZIP)\unzip.lib
 	$(CL) $(LFLAGS) install.obj $(OBJS) $(UNZIP)\unzip.lib
