@@ -48,6 +48,7 @@ unzip_file (char *zipfile, char *fromdir, char *destdir)
   uzp_argv[1] = full_zipfile;
   uzp_argv[3] = destdir;
 
+#ifdef DEBUG
   /* debugging */
 
   printf ("\n");
@@ -55,6 +56,7 @@ unzip_file (char *zipfile, char *fromdir, char *destdir)
     {
       printf ("[%d]'%s'", i, uzp_argv[i]);
     }
+#endif
 
   /* call unzip */
 
