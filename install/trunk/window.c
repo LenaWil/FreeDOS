@@ -37,6 +37,7 @@ progressbar (int completed, int total)
   int rows;
   int pct;
   int i;
+  char tmpstr[51];
 
   /* avoid over/underrun */
 
@@ -48,12 +49,12 @@ progressbar (int completed, int total)
 
   pct = 100 * completed / total;
 
-  pct = MAX (pct, 0);			/* pct should be 0-100 */
+  pct = MAX (pct, 0);			/* should be 0 - 100 */
   pct = MIN (pct, 100);
 
   cols = 50 * completed / total;
 
-  cols = MAX (cols, 0);			/* cols couls be 0-50 */
+  cols = MAX (cols, 0);			/* should be 0 - 50 */
   cols  = MIN (cols, 50);
 
   /* display area. the window starts at col 15 because the screen is
@@ -73,28 +74,30 @@ progressbar (int completed, int total)
 
   /* draw the progress bar */
 
-  /* TODO: this should not use the inefficient putch() but instead
-     should do something like generating a string that is printed
-     'cols' times. -jh */
+  for (i = 0; i < cols; i++)
+    {
+      tmpstr[i] = 219;
+      /* putch (219);			/* filled square */
+    }
+
+  for (i = cols; i < 50; i++)
+    {
+      tmpstr[i] = 176;
+      /* putch (176);			/* empty box */
+    }
+
+  tmpstr[50] = '\0';
+
+  /* print the progress bar */
 
   for (rows = 1; rows <= 3; rows++)
     {
       _settextposition (rows, 1);      	/* relative to window */
-
-      for (i = 0; i < cols; i++)
-	{
-	  /* putch (178);			/* filled box */
-	  putch (219);			/* filled square */
-	}
-
-      for (i = cols; i < 50; i++)
-	{
-	  putch (176);			/* empty box */
-	  /* putch (179);			/* vert thin line */
-	}
+      cputs (tmpstr);
     }
 
-  cprintf (" %d%%", pct);
+  _settextposition (3, 51);
+  cprintf (" %d%% ", pct);
 }
 
 /* titlebar() */
