@@ -18,7 +18,7 @@ for cat in `cat /tmp/$$.cats`; do
     mkdir -vp pkgs/$cat
 
     for f in `cat /tmp/$$.cat.$cat` ; do
-	echo $cat $f > pkgs/$cat/$f.txt
+	echo $cat $f > pkgs/$cat/$f.zip
     done
 
     rm -fv /tmp/$$.cat.$cat
