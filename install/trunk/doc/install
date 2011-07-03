@@ -8,10 +8,6 @@ http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/devel/c/openwatcom/
 http://www.info-zip.org/
 http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/util/file/info-zip/
 
-- FreeDOS Kitten source code (version c)
-http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/devel/libs/cats/
-(this is included by default in the Install source tree)
-
 
 TO COMPILE THE INSTALL PROGRAM:
 
