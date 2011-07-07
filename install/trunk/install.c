@@ -1,173 +1,187 @@
 /* install.c */
 
-/* copyright (c) 2010 Jim Hall <jhall@freedos.org> */
+/* FreeDOS INSTALL program */
 
-/*
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
+/* Copyright (c) 2011 Jim Hall <jhall@freedos.org> */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#include <conio.h>			/* getch, .. */
-#include <direct.h>			/* getcwd, .. */
-#include <dos.h>			/* findfirst/findnext, sleep, .. */
-#include <graph.h>			/* _settextcolor, .. */
-#include <string.h>			/* strncpy, strchr .. */
+#include <dos.h>
+#include <direct.h>
+
+#include <conio.h>
+#include <graph.h>
 
 #include "colors.h"
 
-#include "strchar.h"
+#include "pkginst.h"
+#include "progress.h"
 #include "window.h"
 #include "yesno.h"
-#include "unz.h"
 
-#include "kitten/kitten.h"
-
-/* function prototypes */
-
-void install_usage (void);
-void install (char *fromdir, char *destdir, int all, int src);
-void install_abort (char *message);
-
-/* defs */
-
-typedef struct
+struct path_t
 {
-  int dirnum;
-  char *fname;
-} path_t;
+  int dirindex;
+  char filename[_MAX_NAME];
+};
 
-#define FILELIST_INCR 100
+#define MALLOC_INCR 100
 
-#define DESTDIR "C:\\FDOS"		/* default install dir */
+int install (char *dest, int do_all, int do_source);
+void fail (const char *error);
 
-/* main */
 
 int
 main (int argc, char **argv)
 {
-  /* a program to install FreeDOS 1.1 and later */
-
-  /* assumes that another pre-install process has ensured that drive C
-     exists and has been formatted. */
-
-  int i;
-  int all = 0;
-  int src = 0;
-
   char cwd[_MAX_PATH];
-  char destdir[_MAX_PATH];
+  char dest[_MAX_PATH];
+  char buf[_MAX_PATH+3];				/* TODO: match up with code, below */
 
-  char yn[] = "YN";
-  char yes[] = "YES";
-  char no[] = "NO";
+  int do_all;
+  int do_source;
 
   short fg;
-  long bg;
+  short bg;
 
-  /* remember current settings */
+  /* command line */
 
-  getcwd (&cwd, 128);
+  /* error if ANY command line arguments */
 
-  fg = _gettextcolor ();
-  bg = _getbkcolor ();
-
-  /* check usage (simple) */
-
-  if (argc > 2)
+  if (argc > 1)
     {
-      fprintf (stderr, "Too many arguments!\n");
-      install_usage ();
+      fprintf (stderr, "FreeDOS INSTALL\n");
+      fprintf (stderr, "Copyright (c) 2011 Jim Hall <jhall@freedos.org>\n\n");
+      fprintf (stderr, "Usage: INSTALL\n");
       exit (1);
     }
 
-  else if (argc == 2)
-    {
-      /* install {dest} */
-      strncpy (destdir, argv[1], _MAX_PATH);
-    }
+  /* set up console screen */
 
-  else
-    {
-      /* install */
-      strncpy (destdir, DESTDIR, _MAX_PATH);
-    }
-
-  /* TODO: does dest drive exist? */
-
-  /* open language catalog */
-
-  kittenopen ("install");
-
-  /* start program */
+  fg = _gettextcolor ();
+  bg = _getbkcolor ();
 
   _settextcolor (_WHITE_);
   _setbkcolor (_BLUE_);
   _clearscreen (_GCLEARSCREEN);
 
-  titlebar ("FREEDOS INSTALL");
+  titlebar ("FreeDOS INSTALL");
   statusbar (" ");
 
-  /* where are we installing from, to? */
+  _settextwindow (2,1 , 24,80);			/* y1,x1 , y2,x2 */
 
-  _settextwindow (2, 1, 24, 80);
+#if 0
+  /* show install source */
+
+  getcwd (&cwd, _MAX_PATH);
+
+  _settextposition (X,Y);			/* relative to window */
+  cputs ("Install from: ");
+  cputs (cwd);
+#endif
+
+  /*
+    REMINDER:
+
+    buf[0] must contain the maximum length in characters of the string
+    to be read.
+
+    The array must be big enough to hold the string, a terminating
+    null character, and two additional bytes.
+
+    The actual length of the string read is placed in buf[1].
+
+    The string is stored in the array starting at buf[2]. The newline
+    character, if read, is replaced by a null character.
+  */
+
+  buf[0] = 60;					/* width of text-input window */
+
+  /* get install destination */
+
+  _settextposition (5,5);			/* relative to window */
+  cputs ("Install to:");
+
+  _settextcolor (_BRIGHTWHITE_);
+  _setbkcolor (_CYAN_);
+
+  _settextwindow (7,10 , 7,70);			/* y1,x1 , y2,x2 */
+  _clearscreen (_GWINDOW);
+
+  _settextposition (1,1);			/* relative to window */
+  cgets (buf);
+
+  /* check input, and copy dest */
+
+  if (buf[1] < 1)
+    {
+      fail ("empty dest string");
+    }
+  else if (buf[1] > _MAX_PATH)
+    {
+      fail ("dest string too long");
+    }
+
+  strncpy (dest, buf+2, buf[1]);
+  dest[ buf[1] ] = '\0';			/* terminate the string */
 
   _settextcolor (_WHITE_);
   _setbkcolor (_BLUE_);
+
   _clearscreen (_GWINDOW);
 
-  _settextposition (5, 5);		/* relative to window */
-  cprintf ("Installing from: %s", cwd);
+  _settextposition (1,1);			/* relative to window */
+  cputs (dest);					/* TODO: display uppercase */
 
-  _settextposition (6, 5);		/* relative to window */
-  cprintf ("Installing to: %s", destdir);
+  /* ask if installing all packages, and source code */
 
-  /* install everything? */
+  _settextwindow (2,1 , 24,80);			/* y1,x1 , y2,x2 */
 
-  _settextposition (10, 15);		/* relative to window */
-  all = yesno ("Install all disk sets, all packages? (y/n)", yn, yes, no);
+  _settextposition (10,5);
+  cputs ("Install all packages, in all disk sets?");
+  cputs (" : ");
 
-  /* install source code? */
+  do_all = yesno ("YN");
 
-  _settextposition (12, 15);		/* relative to window */
-  src = yesno ("Install source code, too? (y/n)", yn, yes, no);
+  if (do_all)
+    {
+      cputs ("YES");
+    }
+  else
+    {
+      cputs ("NO");
+    }
 
-  /* are you sure? */
+  /* ask if installing source code too */
 
-  _settextposition (14, 15);		/* relative to window */
-  cprintf ("Press any key to begin ...");
+  _settextposition (11,5);
+  cputs ("Install source code, too?");
+  cputs (" : ");
+
+  do_source = yesno ("YN");
+
+  if (do_all)
+    {
+      cputs ("YES");
+    }
+  else
+    {
+      cputs ("NO");
+    }
+
+  /* install */
+
+  statusbar ("Press any key to begin . . .");
   getch ();
 
-  /* do the install */
+  install (dest, do_all, do_source);
 
-  _displaycursor (_GCURSOROFF);
-  install ("PKGS", destdir, all, src);
-  _displaycursor (_GCURSORON);
-
-  progressbar (1, 1);
   statusbar ("Done!");
-  /* sleep (1); */
   getch ();
 
-  /* close language catalog */
-
-  kittenclose ();
-
-  /* reset, and quit */
+  /* reset colors, and exit */
 
   _settextcolor (fg);
   _setbkcolor (bg);
@@ -176,29 +190,10 @@ main (int argc, char **argv)
   exit (0);
 }
 
-
-/* install_usage() */
-
-void
-install_usage (void)
+int
+install (char *dest, int do_all, int do_source)
 {
-  fprintf (stderr, "usage:\n");
-  fprintf (stderr, "\tINSTALL [ dest ]\n");
-}
-
-/* install() */
-
-/* do-all function that performs the actuall install */
-
-void
-install (char *fromdir, char *destdir, int install_all, int install_src)
-{
-  int i;
-  int done;
-  struct find_t ffblk;
-
-  int dirlist_count = 8;
-  char *dirlist[] = {
+  char *pkgsdirs[] = {
     "BASE",
     "BOOT",
     "DEVEL",
@@ -209,108 +204,136 @@ install (char *fromdir, char *destdir, int install_all, int install_src)
     "UTIL"
   };
 
-  char dir[_MAX_PATH];
-  char full_zipfile[_MAX_PATH];
+  int pkgsdirs_count = 8;
 
-  char filelist_mask[_MAX_PATH];
+  char path[_MAX_PATH];
 
-  path_t *filelist;
-  int filelist_size;
-  int filelist_count;
+  int done;
+  int dir;
+  int file;
 
-  /* build install list */
+  struct find_t ff;
 
-  statusbar ("Building install list ...");
+  struct path_t *files;
+  int files_size;
+  int files_count;
 
-  /* loop through all of dirlist, and read entries into filelist */
+  /* if NOT installing everything (! do_all), set pkgsdirs_count to 1,
+     so we only include BASE */
 
-  if (! install_all)
+  if (! do_all)
     {
-      /* if not installing everything, just install base */
-      dirlist_count = 1;
+      pkgsdirs_count = 1;
     }
 
-  /* allocate memory for filelist */
+  /* allocate memory for the file list */
 
-  filelist_size = FILELIST_INCR;
-  filelist_count = 0;
+  files = (struct path_t *) malloc (MALLOC_INCR * sizeof (struct path_t));
 
-  if ( ! (filelist = (path_t *) malloc (filelist_size * sizeof (path_t))) )
+  if (! files)
     {
-      install_abort ("filelist malloc");
+      fail ("malloc files");
     }
 
-  /* read files in each dir */
+  files_size = MALLOC_INCR;
+  files_count = 0;
 
-  for (i = 0; i < dirlist_count; i++)
+  /* build package install list */
+
+  /* read each dir in the PKGS subdirs for list of packages to install */
+
+  statusbar ("Building package list . . .");
+
+  for (dir = 0; dir < pkgsdirs_count; dir++)
     {
-      sprintf (filelist_mask, "PKGS\\%s\\*.ZIP", dirlist[i]);
+      sprintf (path, "PKGS\\%s\\*.ZIP", pkgsdirs[dir]);
+      done = _dos_findfirst (path, _A_NORMAL, &ff);
 
-     done = _dos_findfirst (filelist_mask, _A_NORMAL, &ffblk);
+      while (! done)
+	{
+	  /* enough memory for a new string? */
 
-      while (!done)
-        {
-          /* allocate memory for strings */
-
-          if ( ! (filelist[filelist_count].fname = (char *) malloc (_MAX_NAME * sizeof (char))) )
+	  if (files_count == files_size)
 	    {
-	      install_abort ("fname malloc");
+	      files_size += MALLOC_INCR;
+	      files = (struct path_t *) realloc (files, files_size * sizeof (struct path_t));
+
+	      if (! files)
+		{
+		  free (files);
+		  fail ("realloc files");
+		}
 	    }
 
-          /* copy strings */
+	  /* read filename into files list */
 
-          filelist[filelist_count].dirnum = i;
-          strncpy (filelist[filelist_count].fname, ffblk.name, _MAX_NAME);
-          filelist_count++;
+	  files[files_count].dirindex = dir;
+	  strncpy (files[files_count].filename, ff.name, _MAX_NAME);
 
-          /* check size */
+	  files_count++;
+	  done = _dos_findnext (&ff);
+	} /* while (! done) */
+    } /* for (dir) */
 
-          if (filelist_count == filelist_size)
-            {
-              filelist_size += FILELIST_INCR;
+  /* install the packages */
 
-              if ( ! (filelist = (path_t *) realloc (filelist, filelist_size * sizeof (path_t))) )
-		{
-		  install_abort ("filelist realloc");
-		}
-            }
+  statusbar ("Installing . . .");
+  progressbar (0, 1);
 
-          /* next */
-
-          done = _dos_findnext (&ffblk);
-        }
-    }
-
-  /* install */
-
-  statusbar ("Installing ...");
-
-  for (i = 0; i < filelist_count; i++)
+  for (file = 0; file < files_count; file++)
+  /* for (file = 0; file < 4; file++) */
     {
-      progressbar (i, filelist_count);
+      statusbar (files[file].filename);
+      progressbar (file+1, files_count);
 
-      _settextposition (10, 15);		/* relative to window */
-      cprintf ("%s            ", filelist[i].fname);
+      /* re-set the window, in case errors get printed by pkginstall() */
 
-      /* create full path of zip file */
+      _settextwindow (2,1 , 24,80);			/* y1,x1, y2,x2 */
 
-      sprintf (dir, "PKGS\\%s", dirlist[ filelist[i].dirnum ]);
-      _makepath (full_zipfile, NULL, dir, filelist[i].fname, NULL);
+      /*
+      cprintf ("DEBUG: %d/%d", files_count, files_size);
+      */
 
-      /* unzip */
+      /* install file */
 
-      unzip_file (full_zipfile, fromdir, destdir);
+      /* TODO: add do_source to pkginstall() */
+
+      sprintf (path, "PKGS\\%s\\%s", pkgsdirs[ files[file].dirindex ], files[file].filename);
+      pkginstall (path, dest);
     }
 
-  _settextposition (10, 15);			/* relative to window */
-  cprintf ("            ");
+  /* done */
 
+  progressbar (1, 1);
+
+  free (files);
+  return (files_count);
 }
 
 void
-install_abort (char *message)
+fail (const char *error)
 {
-  fprintf (stderr, "*** error allocating memory [%s]\n", message);
-  fprintf (stderr, "*** INSTALL ABORTED - NO FILES INSTALLED\n");
+  /* display an error message, then quit */
+
+  _settextcolor (_BRIGHTWHITE_);
+  _setbkcolor (_RED_);
+
+  _settextwindow (10,15 , 15,65);			/* y1,x1 , y2,x2 */
+  _clearscreen (_GWINDOW);
+
+  _settextposition (2,2);				/* relative to window */
+  cprintf ("FAIL: %s\n", error);
+
+  _settextposition (4,2);
+  cputs ("Press any key to quit . . .");
+
+  getch();
+  
+  /* reset colors, and quit */
+
+  _settextcolor (_WHITE_);
+  _setbkcolor (_BLACK_);
+  _clearscreen (_GCLEARSCREEN);
+
   exit (1);
 }
