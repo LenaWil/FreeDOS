@@ -1,3 +1,2 @@
-void progressbar (int completed, int total);
-void titlebar (char *title);
-void statusbar (char *status);
+void titlebar (const char *title);
+void statusbar (const char *status);
