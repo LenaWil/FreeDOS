@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Jim Hall <jhall@freedos.org> */
+/* Copyright (c) 2011 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -16,45 +16,44 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include <conio.h>			/* getch */
-#include <ctype.h>			/* toupper */
-#include <string.h>			/* strchr */
+#include <conio.h>
 
-#include "strchar.h"
+#include "istrichr.h"
 
 /* yesno() */
 
-/* display a query, and only accept Y or N */
-
-/* returns 0 for no, any other value (1) for true */
+/* Only accept Y or N */
 
 int
-yesno (char *query, char *yn, char *yes, char *no)
+yesno (const char *yn)
 {
   int c;
-  char *pch;
-
-  /* assumes yn is in uppercase! */
+  int idx;
 
   /* query for string */
 
-  cprintf ("%s ", query);
+  /* index_strichr() is a case-insensitive version of strchr() that
+     returns an index instead of a pointer, or -1 if not found */
 
-  c = toupper (getch());
+  c = getch();
 
-  while ( (pch = strchr (yn, c)) == NULL)
+  while ( (idx = index_strichr (yn, c)) < 0 )
     {
-      c = toupper (getch());
+      c = getch();
     }
 
-  if ( ((int) pch - (int) yn) == 0 )
+  /* returns 0 for 'N', 1 for 'Y' */
+
+  /* note that the index in the "yn" string has 'Y' at 0, 'N' at 1,
+     but we need to return the opposite */
+
+  if (idx)
     {
-      cprintf (yes);
-      return (1);
-    }
-  else
-    {
-      cprintf (no);
+      /* "NO" */
       return (0);
     }
+
+  /* else, "YES" */
+
+  return (1);
 }
