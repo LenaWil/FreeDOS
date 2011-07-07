@@ -1,27 +1,29 @@
-# Simple makefile for compiling FreeDOS Install program.
-
-# Assumes that you first downloaded & unzipped InfoZip's Unzip 5.52 in
-# the unzip552 directory, in the Install source tree.
-
-#DEBUG=-DDEBUG
+# makefile for compiling the FreeDOS INSTALL program
 
 CC=wcc
+CFLAGS=-ml -q -sg
+
 CL=wcl
-CFLAGS=-ml -q $(DEBUG)
 LFLAGS=-q
 
-UNZIP=unzip552
+LIBUNZIP=unzip60/unzip.lib
 
-OBJS=kitten.obj strchar.obj window.obj yesno.obj unz.obj
+OBJS=pkginst.obj progress.obj istrichr.obj window.obj yesno.obj
 
-install.exe: install.obj $(OBJS) $(UNZIP)\unzip.lib
-	$(CL) $(LFLAGS) install.obj $(OBJS) $(UNZIP)\unzip.lib
+all: install.exe uzpmain.exe reset.exe .symbolic
 
-test: install.exe .symbolic
-	cd t
-	mktest
-	..\install C:\TEST
-	deltree /y *.dir
+install.exe: install.obj $(OBJS) $(LIBUNZIP)
+	$(CL) $(LFLAGS) install.obj $(OBJS) $(LIBUNZIP)
+
+uzpmain.exe: uzpmain.obj
+	$(CL) $(LFLAGS) uzpmain.obj $(LIBUNZIP)
+
+reset.exe: reset.obj
+	$(CL) $(LFLAGS) reset.obj
+
+$(LIBUNZIP):
+	cd unzip60
+	wmake unzip.lib
 	cd ..
 
 # deps:
@@ -29,21 +31,13 @@ test: install.exe .symbolic
 .c.obj: .autodepend
 	$(CC) $(CFLAGS) $<
 
-$(UNZIP)\unzip.lib: .symbolic
-	cd $(UNZIP)
-	$(MAKE)
-	cd ..
-
-kitten.obj: .symbolic
-	$(CC) $(CFLAGS) -Ikitten kitten\kitten.c
-
-# cleanup:
-
 distclean: realclean .symbolic
 	-del *.exe
-	cd $(UNZIP)
-	$(MAKE) distclean
+	cd unzip60
+	$(MAKE) cleaner
+	-del unzip.lib
 	cd ..
+	-deltree /y test
 
 realclean: clean .symbolic
 	-del *.obj
