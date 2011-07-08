@@ -13,7 +13,19 @@
 
 #include "pkginst.h"
 
+
 int UzpMain ( int argc, char **argv );		/* from Info-Zip's Unzip */
+
+/*
+  pkginstall()
+
+  INPUT:
+  filename = package file to install
+  dest = destination dir to install into
+
+  RETURN:
+  non-zero if successful, zero if fail
+*/
 
 int
 pkginstall (char *filename, char *dest)
@@ -40,7 +52,7 @@ pkginstall (char *filename, char *dest)
 
   /* unzip */
 
-  sprintf (command, "UzpMain -q -o -q %s -d %s", filename, dest);
+  sprintf (command, "UNZIP -q -o -q %s -d %s", filename, dest);
   ret = system (command);
   /*
   ret = UzpMain (uzp_argc, uzp_argv);
@@ -50,5 +62,22 @@ pkginstall (char *filename, char *dest)
   cprintf ("DEBUG: %s -> %s (ok)", filename, dest);
   */
 
-  return (ret);
+  /* return code from UzpMain() or system() will be 0 if success,
+     nonzero if ok, because this is what a shell ERRORLEVEL would
+     be. this is opposite from what pkginstall() is supposed to
+     return, so fix the value. */
+
+  /* BUG: OpenWatcom system() seems to always return ok (0), even if
+     an error had occurred */
+
+  if (ret == 0)
+    {
+      /* cputs ("DEBUG: ok"); */
+      return (1);
+    }
+  else
+    {
+      /* cputs ("DEBUG: error"); */
+      return (0);
+    }
 }

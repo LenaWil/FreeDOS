@@ -43,6 +43,8 @@ main (int argc, char **argv)
   int do_all;
   int do_source;
 
+  int install_errs;
+
   short fg;
   short bg;
 
@@ -176,7 +178,7 @@ main (int argc, char **argv)
   statusbar ("Press any key to begin . . .");
   getch ();
 
-  install (dest, do_all, do_source);
+  install_errs = install (dest, do_all, do_source);
 
   statusbar ("Done!");
   getch ();
@@ -187,8 +189,29 @@ main (int argc, char **argv)
   _setbkcolor (bg);
   _clearscreen (_GCLEARSCREEN);
 
+  if (install_errs > 0)
+    {
+      printf ("WARNING: %d errors encountered during install\n");
+      exit (1);
+    }
+
+  /* else */
+
   exit (0);
 }
+
+
+/*
+  install()
+
+  INPUT:
+  dest = destination directory
+  do_all = non-zero: install everything, zero: only install BASE
+  do_source = non-zero: install source code, zero: do not install source
+
+  RETURN:
+  number of errors during installation
+*/
 
 int
 install (char *dest, int do_all, int do_source)
@@ -211,6 +234,10 @@ install (char *dest, int do_all, int do_source)
   int done;
   int dir;
   int file;
+
+  int install_ok;
+  int install_count;
+  int install_errs;
 
   struct find_t ff;
 
@@ -280,6 +307,9 @@ install (char *dest, int do_all, int do_source)
   statusbar ("Installing . . .");
   progressbar (0, 1);
 
+  install_count = 0;
+  install_errs = 0;
+
   for (file = 0; file < files_count; file++)
   /* for (file = 0; file < 4; file++) */
     {
@@ -299,16 +329,39 @@ install (char *dest, int do_all, int do_source)
       /* TODO: add do_source to pkginstall() */
 
       sprintf (path, "PACKAGES\\%s\\%s", pkgsdirs[ files[file].dirindex ], files[file].filename);
-      pkginstall (path, dest);
+
+      install_ok = pkginstall (path, dest);
+
+      if (install_ok)
+	{
+	  install_count++;
+	}
+      else
+	{
+	  install_errs++;
+	}
     }
+
+  /* cprintf ("DEBUG: %d files installed, %d errors", install_count, install_errs); */
 
   /* done */
 
   progressbar (1, 1);
 
   free (files);
-  return (files_count);
+  return (install_errs);
 }
+
+
+/*
+  fail()
+
+  INPUT:
+  error = text string to display to the user (probably used in debugging)
+
+  RETURN:
+  nothing
+*/
 
 void
 fail (const char *error)
