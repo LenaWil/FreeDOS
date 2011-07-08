@@ -1,4 +1,4 @@
-Changes to the Free-DOS Install program:
+Changes to the FreeDOS Install program:
 
 Copyright (C) Jim Hall <jhall@freedos.org>
 

@@ -1,4 +1,4 @@
-Changes to the Free-DOS Install program:
+Changes to the FreeDOS Install program:
 
 Original program, versions 1.0 - 3.7.5
  - Copyright (C) 1998-2002 Jim Hall <jhall@freedos.org>
@@ -6,6 +6,6 @@ Original program, versions 1.0 - 3.7.5
 Updated, versions 3.7.6 - 3.7.7
  - Maintained by Jeremy Davis <jeremyd@computer.org>
 
-Complete re-write, version 4.0
- - Copyright (C) 2010 Jim Hall <jhall@freedos.org>
+Complete re-write, version 4.0 - 4.01
+ - Copyright (C) 2010-2011 Jim Hall <jhall@freedos.org>
 
