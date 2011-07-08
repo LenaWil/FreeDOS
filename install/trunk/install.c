@@ -240,13 +240,13 @@ install (char *dest, int do_all, int do_source)
 
   /* build package install list */
 
-  /* read each dir in the PKGS subdirs for list of packages to install */
+  /* read each dir in the PACKAGES subdirs for list of packages to install */
 
   statusbar ("Building package list . . .");
 
   for (dir = 0; dir < pkgsdirs_count; dir++)
     {
-      sprintf (path, "PKGS\\%s\\*.ZIP", pkgsdirs[dir]);
+      sprintf (path, "PACKAGES\\%s\\*.ZIP", pkgsdirs[dir]);
       done = _dos_findfirst (path, _A_NORMAL, &ff);
 
       while (! done)
@@ -298,7 +298,7 @@ install (char *dest, int do_all, int do_source)
 
       /* TODO: add do_source to pkginstall() */
 
-      sprintf (path, "PKGS\\%s\\%s", pkgsdirs[ files[file].dirindex ], files[file].filename);
+      sprintf (path, "PACKAGES\\%s\\%s", pkgsdirs[ files[file].dirindex ], files[file].filename);
       pkginstall (path, dest);
     }
 
