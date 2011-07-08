@@ -326,11 +326,9 @@ install (char *dest, int do_all, int do_source)
 
       /* install file */
 
-      /* TODO: add do_source to pkginstall() */
-
       sprintf (path, "PACKAGES\\%s\\%s", pkgsdirs[ files[file].dirindex ], files[file].filename);
 
-      install_ok = pkginstall (path, dest);
+      install_ok = pkginstall (path, dest, do_source);
 
       if (install_ok)
 	{

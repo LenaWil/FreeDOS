@@ -28,37 +28,45 @@ int UzpMain ( int argc, char **argv );		/* from Info-Zip's Unzip */
 */
 
 int
-pkginstall (char *filename, char *dest)
+pkginstall (char *filename, char *dest, int do_source)
 {
   int ret;
-  char **uzp_argv;
-  int uzp_argc = 6;
 
   char command[_MAX_PATH];
+  /*
+  char **uzp_argv;
+  int uzp_argc = 6;
+  */
 
   /* assign string pointers */
 
-  uzp_argv[0] = "UNZIP";
-  uzp_argv[1] = "-q";				/* quiet */
-  uzp_argv[2] = "-o";				/* overwrite without prompt */
-  uzp_argv[3] = filename;			/* zip file to extract */
-  uzp_argv[4] = "-d";				/* extract to -d=dir */
-  uzp_argv[5] = dest;				/* destination dir */
-
   /*
-  cprintf ("DEBUG: about to call UzpMain . . . press a key");
-  getch();
+  uzp_argv[0] = "UNZIP";
+  uzp_argv[1] = "-q";
+  uzp_argv[2] = "-o";
+  uzp_argv[3] = filename;
+  uzp_argv[4] = "-d";
+  uzp_argv[5] = dest;
   */
 
   /* unzip */
 
-  sprintf (command, "UNZIP -q -o -q %s -d %s", filename, dest);
+  if (do_source)
+    {
+      /* cputs ("DEBUG: include source code"); */
+      sprintf (command, "UNZIP -q -o %s -d %s", filename, dest);
+    }
+  else
+    {
+      /* cputs ("DEBUG: skip source code"); */
+      sprintf (command, "UNZIP -q -o -C %s -x SOURCE\\* -d %s", filename, dest);
+    }
   ret = system (command);
-  /*
-  ret = UzpMain (uzp_argc, uzp_argv);
-  */
 
   /*
+  cprintf ("DEBUG: about to call UzpMain() . . . press a key");
+  getch();
+  ret = UzpMain (uzp_argc, uzp_argv);
   cprintf ("DEBUG: %s -> %s (ok)", filename, dest);
   */
 
