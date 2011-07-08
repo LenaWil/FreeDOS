@@ -1,4 +1,4 @@
-/* uzpmain.c */
+/* unzip.c */
 
 /* fake Unzip - using Info-Zip's UzpMain API */
 
