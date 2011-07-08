@@ -10,13 +10,13 @@ LIBUNZIP=unzip60/unzip.lib
 
 OBJS=pkginst.obj progress.obj istrichr.obj window.obj yesno.obj
 
-all: install.exe uzpmain.exe reset.exe .symbolic
+all: install.exe unzip.exe reset.exe .symbolic
 
 install.exe: install.obj $(OBJS) $(LIBUNZIP)
 	$(CL) $(LFLAGS) install.obj $(OBJS) $(LIBUNZIP)
 
-uzpmain.exe: uzpmain.obj
-	$(CL) $(LFLAGS) uzpmain.obj $(LIBUNZIP)
+unzip.exe: unzip.obj
+	$(CL) $(LFLAGS) unzip.obj $(LIBUNZIP)
 
 reset.exe: reset.obj
 	$(CL) $(LFLAGS) reset.obj
