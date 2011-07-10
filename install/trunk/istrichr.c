@@ -1,3 +1,5 @@
+/* istrichr.c */
+
 /* Copyright (c) 2010-2011 Jim Hall <jhall@freedos.org> */
 
 /*
@@ -20,8 +22,8 @@
 
 /* index_strichr() */
 
-/* like strchr, but returns an int (instead of a pointer) giving the
-   character's location in the string */
+/* case-insensitive strchr, but returns an int (instead of a pointer)
+   giving the character's location in the string */
 
 int
 index_strichr (const char *str, int ch)

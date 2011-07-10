@@ -1,10 +1,6 @@
-/*
-  splitdir - Simple function to split a directory path into a drive
-  and directory component. Similar to _splitpath but only works for
-  dirs like "C:\DIR" and "\DIR" and "DIR\".
-*/
+/* splitdir.c */
 
-/* copyright (c) 2010 Jim Hall <jhall@freedos.org> */
+/* Copyright (c) 2010 Jim Hall <jhall@freedos.org> */
 
 /*
   This program is free software; you can redistribute it and/or modify
@@ -35,6 +31,12 @@
 void
 splitdir (char *fulldir, char *drive, char *dir)
 {
+  /*
+    splitdir() - Simple function to split a directory path into a
+    drive and directory component. Similar to _splitpath but only
+    works for dirs like "C:\DIR" and "\DIR" and "DIR\".
+  */
+
   if (fulldir[1] == ':')
     {
       /* fulldir has a drive component, looks like "C:\DIR" */

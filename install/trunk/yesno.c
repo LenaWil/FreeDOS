@@ -1,3 +1,5 @@
+/* yesno.c */
+
 /* Copyright (c) 2011 Jim Hall <jhall@freedos.org> */
 
 /*
@@ -20,13 +22,11 @@
 
 #include "istrichr.h"
 
-/* yesno() */
-
-/* Only accept Y or N */
-
 int
 yesno (const char *yn)
 {
+  /* yesno() - Only accept Y or N */
+
   int c;
   int idx;
 

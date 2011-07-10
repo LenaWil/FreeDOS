@@ -2,6 +2,10 @@
 
 /* fake Unzip - using Info-Zip's UzpMain API */
 
+/* Jim Hall <jhall@freedos.org> */
+
+/* THIS PROGRAM IS TRIVIAL, AND IS IN THE PUBLIC DOMAIN */
+
 #include <stdio.h>
 #include <stdlib.h>
 
