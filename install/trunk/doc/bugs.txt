@@ -17,9 +17,8 @@ KNOWN BUGS OR "TO DO" ITEMS:
 
 * TODO: When switch to using PACKAGES\*\*.ZIP, we'll need a good way
   to inform the user when they ask to install everything and only BASE
-  exists, or if nothing exists when you ask to install just
-  BASE. Currently, it silently skips any directories where it cannot
-  do a readdir().
+  exists, or if nothing exists when you ask to install just BASE.
+  Currently, silently skips any dirs where it cannot do a readdir().
 
 * TODO: add a "beep" when it's done installing.
 
