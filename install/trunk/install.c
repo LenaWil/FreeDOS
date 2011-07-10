@@ -180,7 +180,7 @@ main (int argc, char **argv)
 
   do_source = yesno ("YN");
 
-  if (do_all)
+  if (do_source)
     {
       cputs ("YES");
     }
