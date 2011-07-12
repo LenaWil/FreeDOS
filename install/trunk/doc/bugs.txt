@@ -10,6 +10,28 @@ KNOWN BUGS OR "TO DO" ITEMS:
   created) and is a valid DOS path. Do this before attempting the rest
   of the install.
 
+  ** prefer to prompt for *install drive* rather than full path, and
+     let the Install program assume \FDOS (for example, C:\FDOS)
+
+  ** would be good to make an educated guess for where to install. for
+     example, if the Install program is executed from A: or B: or D:
+     (etc) then can it suggest installing to C:? otherwise, make no
+     suggestion and simply ask the user.
+
+  ** validate that the destination drive is valid & writable, and that
+     \FDOS can be created (for example, not already a file, drive is
+     writable, etc.)
+
+* TODO: verify that the install destination has enough free space to
+  install FreeDOS 1.1 (may need hard-coded values?)
+
+* TODO: add command line options (for scripting options.) Source &
+  dest, install all packages, install source. If using command line
+  options, maybe display the "Done" message for 1 second?
+
+* TODO: add some level of confirmation of installation values before
+  installing, and allow a "graceful" abort option.
+
 * TODO: remove the use of hard-coded values in install.c. Prefer to
   look in PACKAGES\*\*.ZIP instead, but this will require updating the
   install.c code to use a different method to just look for BASE when
@@ -21,6 +43,9 @@ KNOWN BUGS OR "TO DO" ITEMS:
   Currently, silently skips any dirs where it cannot do a readdir().
 
 * TODO: add a "beep" when it's done installing.
+
+* TODO: add a "press any key" prompt to exit after done installing.
+  can borrow the NLS string from FreeDOS CHOICE.
 
 * TODO: Prefer to use UzpMain() directly from pkginst.c rather than
   system(), but there's a bug in calling UzpMain() from the Install
