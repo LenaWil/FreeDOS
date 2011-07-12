@@ -8,7 +8,10 @@ the file COPYING for details.)  You may use the Install program for
 pretty much anything: commercial distributors may even use it as an
 installer for their own software.
 
-For installation instructions, see the INSTALL file.
+For compile instructions, see the INSTALL.TXT file.
+
+The Install program assumes Info-Zip's UNZIP.EXE. The compile process
+will create one for you, but you can substitute any compatible UNZIP.
 
 Before running INSTALL.EXE please correctly set the following 
 enviroment variables:
