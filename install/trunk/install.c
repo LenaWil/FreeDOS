@@ -240,10 +240,11 @@ install (char *dest, int do_all, int do_source)
     "GUI",
     "NET",
     "SOUND",
-    "UTIL"
+    "UTIL",
+    "EXTRAS"
   };
 
-  int pkgsdirs_count = 8;
+  int pkgsdirs_count = 9;
 
   char path[_MAX_PATH];
 
