@@ -1,8 +1,10 @@
 KNOWN BUGS OR "TO DO" ITEMS:
 
 
-* TODO: when the install is done, CD to the destination drive & dir,
+* IMPORTANT: when install is done, CD to the destination drive & dir,
   so POSTINST can run from CWD.
+
+* IMPORTANT: add EXTRAS to pkgsdirs in install.c
 
 
 * BUG: better error checking everywhere.
