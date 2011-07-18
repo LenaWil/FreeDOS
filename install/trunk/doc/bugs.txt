@@ -1,5 +1,10 @@
 KNOWN BUGS OR "TO DO" ITEMS:
 
+
+* TODO: when the install is done, CD to the destination drive & dir,
+  so POSTINST can run from CWD.
+
+
 * BUG: better error checking everywhere.
 
 * BUG: OpenWatcom's system() always returns 0 (ok) even if failed?
@@ -77,6 +82,3 @@ KNOWN BUGS OR "TO DO" ITEMS:
 
 * TODO: Normalize the program strings, to re-use as much as possible
   from the previous NLS effort.
-
-* TODO: when the install is done, CD to the destination drive & dir,
-  so POSTINST can run from CWD.
