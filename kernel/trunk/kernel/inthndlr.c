@@ -1139,6 +1139,8 @@ dispatch:
       /* Dos Create New Psp & set p_size                              */
     case 0x55:
       child_psp(lr.DX, cu_psp, lr.SI);
+      /* copy command line from the parent (required for some device loaders) */
+      fmemcpy(MK_FP(lr.DX, 0x80), MK_FP(cu_psp, 0x80), 128);
       cu_psp = lr.DX;
       break;
 
@@ -1377,7 +1379,7 @@ dispatch:
           case 0:
             p = DosGetDBCS();
             lr.DS = FP_SEG(p);
-            lr.SI = FP_OFF(p);
+            lr.SI = FP_OFF(p) + 2;
             break;
           case 1: /* set Korean Hangul input method to DL 0/1 */
             lr.AL = 0xff;       /* flag error (AL would be 0 if okay) */
