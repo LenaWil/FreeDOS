@@ -202,6 +202,7 @@ STATIC VOID CfgMenuEsc(BYTE * pLine);
 STATIC VOID DoMenu(void);
 STATIC VOID CfgMenuDefault(BYTE * pLine);
 STATIC BYTE * skipwh(BYTE * s);
+STATIC int iswh(unsigned char c);
 STATIC BYTE * scan(BYTE * s, BYTE * d);
 STATIC BOOL isnum(char ch);
 #if 0
@@ -250,8 +251,8 @@ struct table {
 };
 
 STATIC struct table commands[] = {
-  /* first = switches! this one is special since it is asked for but
-     also checked before F5/F8 */
+  /* first = switches! this one is special; some options will
+     always be ran, others depends on F5/F8 and ? processing */
   {"SWITCHES", 0, CfgSwitches},
 
   /* rem is never executed by locking out pass                    */
@@ -387,9 +388,9 @@ void PreConfig2(void)
   if (Config.ebda2move)
   {
     ebda_size = ebdasize();
-    ram_top += ebda_size / 1024;
     if (ebda_size > Config.ebda2move)
       ebda_size = Config.ebda2move;
+    ram_top += ebda_size / 1024;
   }
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
@@ -403,8 +404,8 @@ void PreConfig2(void)
   if (ebda_size)  /* move the Extended BIOS Data Area from top of RAM here */
     movebda(ebda_size, FP_SEG(KernelAlloc(ebda_size, 'I', 0)));
 
-  if (UmbState == 2)
-    umb_init();
+//  if (UmbState == 2)
+//    umb_init();
 }
 
 /* Do third pass initialization.                                        */
@@ -529,6 +530,8 @@ STATIC void umb_init(void)
     UmbState = 1;
 
     /* reset root */
+    /* Note: since device drivers can change what is considered top of memory (e.g. move XBDA) we must requery */
+    ram_top = init_oem();
     LoL->uppermem_root = ram_top * 64 - 1;
 
     /* create link mcb (below) */
@@ -606,7 +609,7 @@ struct memdiskinfo {
   UBYTE version;             /* Memdisk major version */
   UDWORD base;               /* Pointer to disk data in high memory */
   UDWORD size;               /* Size of disk in 512 byte sectors */
-  char FAR * cmdline;        /* Command line */
+  char FAR * cmdline;        /* Command line; currently <= 2047 chars */
   ADDRESS oldint13;          /* Old INT 13h */
   ADDRESS oldint15;          /* Old INT 15h */
   UWORD olddosmem;           /* Amount of DOS memory before Memdisk loaded */
@@ -617,6 +620,172 @@ struct memdiskinfo {
 
 /* query_memdisk() based on similar subroutine in Eric Auer's public domain getargs.asm which is based on IFMEMDSK */
 struct memdiskinfo FAR * ASMCFUNC query_memdisk(UBYTE drive);
+
+struct memdiskopt {
+  BYTE * name;
+  UWORD size;
+};
+
+/* preprocesses memdisk command line to allow simpler handling
+  { is replaced by unsigned offset to start of next config line
+  e.g.  "{{HI{HI}{HI{HI" --> "13HI4HI}3HI3HI"
+  FreeDOS supports max 256 length config lines, memdisk 4 max command length 2047
+*/
+BYTE FAR * ProcessMemdiskLine(BYTE FAR *cLine)
+{
+  BYTE FAR *ptr;
+  BYTE FAR *sLine = cLine;
+  
+  /* skip everything until end of line or starting { */
+  for (; *cLine && (*cLine != '{'); ++cLine)
+    ;
+  sLine = cLine;
+    
+  for (ptr = cLine; *cLine; ptr = cLine)
+  {
+    /* skip everything until end of line or starting { */
+    for (++cLine; *cLine && (*cLine != '{'); ++cLine)
+      ;
+     
+    /* calc offset from previous { to next { or eol and replace previous { with offset */
+    *ptr = (BYTE)(cLine - ptr);
+  }
+
+  return sLine;
+}
+
+/* Given a pointer to a memdisk command line and buffer will copy the next
+   config.sys equivalent line to pLine and return updated cLine.
+   Call repeatedly until end of string (*cLine == '\0').
+   Each simulated line is indicated be enclosing the line in curly braces {}
+   with the end } optional - the next { will indicate end/beginning and
+   end of line.  MEMDISK options may appear nearly anywhere on line and are
+   ignored - see memdisk_opts for list of recognized options.
+*/
+BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
+{
+  STATIC struct memdiskopt memdiskopts[] = {
+      {"initrd", 6}, {"BOOT_IMAGE", 10},
+      {"floppy", 6}, {"harddisk", 8}, {"iso", 3}, 
+      {"nopass", 6}, {"nopassany", 9},
+      {"edd", 3}, {"noedd", 5}
+/*
+      {"c", 1}, {"h", 1}, {"s", 1}, 
+      {"raw", 3}, {"bigraw", 6}, {"int", 3}, {"safeint", 7}
+*/
+  };
+
+  int ws = TRUE;  /* treat start of line same as if whitespace seen */
+  BYTE FAR * mf = NULL;   /* where last line split by memdisk option */
+  BYTE FAR *ptr = cLine;  /* start of current cfg line, where { was */
+  BYTE FAR *sLine = cLine;
+  
+  /* exit early if already at end of command line */
+  if (!*cLine) return cLine;
+
+  /* point to start of next line; terminates current line if no } found before here */
+  cLine += *cLine;
+
+  /* restore original character we overwrite with offset, for next iteration of cfg file */
+  *ptr = '{'; 
+  
+  /* ASSERT ptr points to start of line { and cLine points to start of next line { (or eol)*/
+  
+  /* copy chars to pLine buffer until } or start of next line */  
+  for (++ptr; (*ptr != '}') && (ptr < cLine); ++ptr)
+  {
+    /* if not in last {} then simply copy chars up to } (or next {) */
+    if (*cLine) goto copy_char;
+
+    /* otherwise if last character was whitespace (or start of line) check for memdisk option to skip */
+    if (ws)
+    {
+      int i;
+      for (i = 0; i < 9; ++i)
+      {
+        /* compare with option */
+        if (fmemcmp(ptr, memdiskopts[i].name, memdiskopts[i].size) == 0) 
+        {
+          BYTE c = *(ptr + memdiskopts[i].size);
+          /* ensure character after is end of line, =, or whitespace */
+          if (!c || (c == '=') || iswh(c))
+          {
+            /* flag this line split */
+            mf = ptr;
+            
+            /* matched option so point past it */
+            ptr += memdiskopts[i].size;
+            
+            /* allow extra whitespace between option and = by skipping it */
+            while (iswh(*ptr))
+              ++ptr;
+
+            /* if option has = value then skip it as well */
+            if (*ptr == '=')
+            {
+              /* allow extra whitespace between = and value by skipping it */
+              while (iswh(*ptr))
+                ++ptr;
+                
+              /* skip past all characters after = */
+              for (; (*ptr != '}') && (ptr < cLine) && !iswh(*ptr); ++ptr)
+                ;
+            }
+              
+            break; /* memdisk option found, no need to keep check rest in list */
+          }
+        }
+      }
+    }
+      
+    if (ptr < cLine)
+    {
+      ws = iswh(*ptr);
+      
+      /* allow replacing X=Y prior to memdisk options with X=Z after */
+      /* on 1st pass if find a match we overwrite it with spaces */
+      if (mf && (*ptr == '='))
+      {
+        BYTE FAR *old=sLine, FAR *new;
+        /* check for = in command line */
+        for (; old < mf; ++old)
+        {
+          for (; (*old != '=') && (old < mf); ++old)
+            ;
+          /* ASSERT ptr points to = after memdisk option and old points to = before memdisk option or mf */
+          
+          /* compare backwards to see if same option */
+          for (new = ptr; (old >= sLine) && ((*old & 0xCD) == (*new & 0xCD)); --old, --new)
+          {
+            if (iswh(*old) || iswh(*new)) break;
+          }
+          
+          /* if match found then overwrite, otherwise skip past the = */
+          if (((old <= sLine) || iswh(*old)) && iswh(*new))
+          {
+            /* match found so overwrite with spaces */
+            for(++old; !iswh(*old) && (old < mf); ++old)
+              *old = ' '; 
+          }
+          else
+          {
+            for (; (*old != '=') && (old < mf); ++old)
+              ;
+          }
+        }
+      }
+      
+copy_char:
+      *pLine = *ptr;
+      ++pLine;
+    }
+  }
+  *pLine = 0;
+
+  /* return location to begin next scan from */    
+  return cLine;
+}
+
 #endif
 
 
@@ -624,18 +793,21 @@ VOID DoConfig(int nPass)
 {
   COUNT nFileDesc;
   BYTE *pLine;
-  BOOL bEof;
+  BOOL bEof = FALSE;
   
-
 #ifdef MEMDISK_ARGS
   /* check if MEMDISK used for LoL->BootDrive, if so check for special appended arguments */
-  struct memdiskinfo FAR *mdsk;
-  BYTE FAR *mdsk_cfg = NULL;
+  struct memdiskinfo FAR *mdsk = NULL;
+  BYTE FAR *cLine;
   /* memdisk check & usage requires 386+, DO NOT invoke if less than 386 */
   if (LoL->cpu >= 3)
   {
     UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
     mdsk = query_memdisk(drv);
+    if (mdsk != NULL) 
+    {
+      cLine = ProcessMemdiskLine(mdsk->cmdline);
+    }
   }
 #endif
 
@@ -647,43 +819,14 @@ VOID DoConfig(int nPass)
     if (mdsk != NULL)
     {
       printf("MEMDISK version %u.%02u  (%lu sectors)\n", mdsk->version, mdsk->version_minor, mdsk->size);
-      DebugPrintf(("MEMDISK args:{%S}  bootdrive=[%0Xh]\n", mdsk->cmdline, (unsigned int)drv));
+      DebugPrintf(("MEMDISK args:{%S}\n", mdsk->cmdline));
     }
-#endif
-  }
-
-#ifdef MEMDISK_ARGS
-  if (mdsk != NULL)
-  {
-    /* scan for FD= */
-    /* when done mdsk->cmdline points to { character or assume no valid CONFIG options */
-    for (mdsk_cfg=mdsk->cmdline; *mdsk_cfg; ++mdsk_cfg)
+    else
     {
-      if (*mdsk_cfg != ' ') continue;
-      ++mdsk_cfg;
-      if (*mdsk_cfg != 'F') goto goback1;
-      ++mdsk_cfg;
-      if (*mdsk_cfg != 'D') goto goback2;
-      ++mdsk_cfg;
-      if (*mdsk_cfg != '=') goto goback3;
-      ++mdsk_cfg;
-      break;
-
-      goback3:
-        --mdsk_cfg;
-      goback2:
-        --mdsk_cfg;
-      goback1:
-        --mdsk_cfg;
+      DebugPrintf(("MEMDISK not detected!\n"));
     }
-    /* if FD= was not found then flag as no extra CONFIG lines */
-    if (!*mdsk_cfg) mdsk_cfg = NULL;
-  }
-  else
-  {
-    DebugPrintf(("MEMDISK not detected! bootdrive=[%0Xh]\n", (unsigned int)drv));
-  }
 #endif
+  }
 
 
   /* Check to see if we have a config.sys file.  If not, just     */
@@ -699,8 +842,10 @@ VOID DoConfig(int nPass)
     if ((nFileDesc = open("config.sys", 0)) < 0)
     {
       DebugPrintf(("CONFIG.SYS not found\n"));
+      /* at this point no config file was found, may return early */
 #ifdef MEMDISK_ARGS
-      if (mdsk_cfg != NULL)
+      /* if memdisk in use then only assume end of file reached and proceed, else return early */
+      if (mdsk != NULL)
         bEof = TRUE;
       else
 #endif
@@ -712,25 +857,20 @@ VOID DoConfig(int nPass)
     }
   }
 
-  /* Have one -- initialize.                                      */
-  nCfgLine = 0;
-  bEof = 0;
-  pLine = szLine;
+  nCfgLine = 0;  /* keep track of which line in file for errors   */
 
   /* Read each line into the buffer and then parse the line,      */
   /* do the table lookup and execute the handler for that         */
   /* function.                                                    */
 
 #ifdef MEMDISK_ARGS
-  for (; !bEof || (mdsk_cfg != NULL); nCfgLine++)
+  for (; !bEof || (mdsk != NULL); nCfgLine++)
 #else
   for (; !bEof; nCfgLine++)
 #endif
   {
     struct table *pEntry;
-
     pLineStart = szLine;
-
 
 #ifdef MEMDISK_ARGS
     if (!bEof)
@@ -761,49 +901,22 @@ VOID DoConfig(int nPass)
         pLine++;
     }
 
+    *pLine = 0;
 #ifdef MEMDISK_ARGS
     }
-    else if (mdsk_cfg != NULL)
+    else if (mdsk != NULL)
     {
-        pLine = szLine;
-        /* copy data to near buffer skipping { and } */
-        if (*mdsk_cfg != '{') /* if not at start of line */
-        {
-            mdsk_cfg = NULL; /* no longer need data, so set to NULL to flag done */
-        }
-        else
-        {
-            for (pLine = szLine, mdsk_cfg++; *mdsk_cfg; mdsk_cfg++, pLine++)
-            {
-              /* copy character to near buffer */
-              *pLine = *mdsk_cfg;
-
-              /* ensure we don't copy too much, exceed our buffer size */
-              if (pLine >= szLine + sizeof(szLine) - 3)
-              {
-                CfgFailure(pLine);
-                printf("error - line overflow line %d \n", nCfgLine);
-                break;
-              }
-
-              /* if end of this simulated line is found, skip over EOL marker then proceed to process line */
-              if (*pLine == '}')
-              {
-                  mdsk_cfg++;
-                  break;
-              }
-            }
-        }
+      cLine = GetNextMemdiskLine(cLine, szLine);
+      /* if end of memdisk command line reached, flag done */
+      if (!*cLine)
+        mdsk = NULL;
     }
 #endif
 
-    *pLine = 0;
-    pLine = szLine;
-
-    DebugPrintf(("CONFIG=[%s]\n", pLine));
+    DebugPrintf(("CONFIG=[%s]\n", szLine));
 
     /* Skip leading white space and get verb.               */
-    pLine = scan(pLine, szBuf);
+    pLine = scan(szLine, szBuf);
 
     /* If the line was blank, skip it.  Otherwise, look up  */
     /* the verb and execute the appropriate function.       */
@@ -812,17 +925,19 @@ VOID DoConfig(int nPass)
 
     pEntry = LookUp(commands, szBuf);
 
+	/* should config command be executed on this pass? */
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
     
-    if (nPass == 0) /* pass 0 always executed (rem Menu prompt switches) */
+	/* pass 0 always executed (rem Menu prompt switches) */
+    if (nPass == 0) 
     {
       pEntry->func(pLine);
       continue;
     }
     else
     {
-      if (SkipLine(pLineStart))   /* F5/F8 processing */
+      if (SkipLine(pLineStart))   /* F5/F8/?/! processing */
         continue;
     }
 
@@ -1242,7 +1357,7 @@ STATIC VOID CfgSwitches(BYTE * pLine)
           int n = 0;
           if (*++pLine == ':')
             pLine++;                    /* skip optional separator */
-          if (!isnum(*pLine))
+          if (!(isnum(*pLine) || (*pLine == '-')))
           {
             pLine--;
             break;
@@ -1387,7 +1502,8 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
     {"\377DBCS   ", &nlsDBCSHardcoded}      /* 7, not supported [yet] */
   };
   static struct subf_hdr hdr[8];
-  int fd, entries, count, i;
+  static int entries, count;
+  int fd, i;
   char *filename = filenam == NULL ? "\\COUNTRY.SYS" : filenam;
   BOOL rc = FALSE;
 
@@ -1427,7 +1543,7 @@ err:printf("%s has invalid format\n", filename);
     {
       if (hdr[i].length != 6)
         goto err;
-      if (hdr[i].id < 1 || hdr[i].id > 6 || hdr[i].id == 3)
+      if (hdr[i].id < 1 || hdr[i].id > 7 || hdr[i].id == 3)
         continue;
       if (lseek(fd, hdr[i].offset) == 0xffffffffL
        || read(fd, &subf_data, 10) != 10
@@ -1448,6 +1564,24 @@ err:printf("%s has invalid format\n", filename);
         subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
                 min(subf_data.length, sizeof(struct CountrySpecificInfo));
       }
+      if (hdr[i].id == 7)
+      {
+        if (subf_data.length == 0)
+        {
+          /* if DBCS table (in country.sys) is empty, clear internal table */
+          *(DWORD *)(subf_data.buffer) = 0L;
+          fmemcpy((BYTE FAR *)(table[hdr[i].id].p), subf_data.buffer, 4);
+        }
+        else
+        {
+          fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer, subf_data.length);
+          /* write length */
+          *(UWORD *)(subf_data.buffer) = subf_data.length;
+          fmemcpy((BYTE FAR *)(table[hdr[i].id].p), subf_data.buffer, 2);
+        }
+        continue;
+      }
+      
       fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer,
                                 /* skip length ^*/  subf_data.length);
     }
@@ -1707,6 +1841,7 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
   seg base, start;
   struct submcb FAR *p;
 
+  /* if no umb available force low allocation */
   if (UmbState != 1)
     mode = 0;
 
